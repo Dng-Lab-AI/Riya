@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display-face);
+
+  /* Terre cuite */
+  --color-clay-50: #fdf4ef;
+  --color-clay-100: #fae3d6;
+  --color-clay-200: #f3c2a6;
+  --color-clay-500: #d2643a;
+  --color-clay-600: #b84e28;
+  --color-clay-700: #973d20;
+  --color-clay-800: #7a321d;
+
+  /* Ocre / or */
+  --color-ochre-100: #fcefc7;
+  --color-ochre-300: #f4c95d;
+  --color-ochre-400: #edb33a;
+  --color-ochre-500: #e09a1e;
+  --color-ochre-800: #7c4e0b;
+
+  /* Vert forêt */
+  --color-forest-100: #dceedf;
+  --color-forest-500: #2f7a4a;
+  --color-forest-600: #22623a;
+  --color-forest-700: #1a4d2e;
+  --color-forest-800: #143b24;
+  --color-forest-900: #0e2a1a;
+
+  /* Sable */
+  --color-sand-50: #fbf7f0;
+  --color-sand-100: #f5ede0;
+  --color-sand-200: #eadbc4;
+  --color-sand-300: #dcc6a5;
+
+  /* Brun (texte) */
+  --color-earth-400: #9c8571;
+  --color-earth-500: #7d6754;
+  --color-earth-600: #604d3d;
+  --color-earth-700: #473629;
+  --color-earth-800: #33251b;
+  --color-earth-900: #22180f;
+}
+
+body {
+  background: var(--color-sand-50);
+  color: var(--color-earth-900);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Motif inspiré du kente : bandes croisées or, vert et terre cuite. */
+.pattern-kente {
+  background-color: var(--color-forest-800);
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 22px, rgb(237 179 58 / 0.9) 22px 30px, transparent 30px 52px, rgb(210 100 58 / 0.85) 52px 56px, transparent 56px 80px),
+    repeating-linear-gradient(0deg, transparent 0 18px, rgb(237 179 58 / 0.35) 18px 22px, transparent 22px 40px);
+}
+
+/* Motif inspiré du bogolan : petits losanges discrets sur fond sable. */
+.pattern-bogolan {
+  background-image:
+    linear-gradient(45deg, rgb(125 103 84 / 0.07) 25%, transparent 25%),
+    linear-gradient(-45deg, rgb(125 103 84 / 0.07) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgb(125 103 84 / 0.07) 75%),
+    linear-gradient(-45deg, transparent 75%, rgb(125 103 84 / 0.07) 75%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+}
+
+.kente-strip {
+  height: 6px;
+  background: repeating-linear-gradient(90deg,
+    var(--color-ochre-400) 0 24px,
+    var(--color-forest-600) 24px 36px,
+    var(--color-clay-500) 36px 60px,
+    var(--color-earth-900) 60px 66px);
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-clay-600 text-white hover:bg-clay-700;
+}
+@utility btn-dark {
+  @apply btn bg-forest-800 text-sand-50 hover:bg-forest-900;
+}
+@utility btn-outline {
+  @apply btn border border-earth-900/15 bg-white text-earth-900 hover:border-clay-500 hover:text-clay-700;
+}
+@utility btn-ghost {
+  @apply btn px-3 text-earth-700 hover:bg-sand-100;
+}
+@utility card {
+  @apply rounded-2xl border border-sand-200 bg-white shadow-sm;
+}
+@utility input {
+  @apply w-full rounded-xl border border-sand-300 bg-white px-3.5 py-2.5 text-sm text-earth-900 outline-none transition placeholder:text-earth-400 focus:border-clay-500 focus:ring-2 focus:ring-clay-200;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-semibold text-earth-800;
+}
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-earth-700;
+}
