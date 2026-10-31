@@ -36,7 +36,7 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
   return (
     <nav aria-label="Mon espace">
       {/* Phones: one scrollable row of pills. */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
         {sections.flatMap((s) => s.items).map((item) => (
           <Link
             key={item.href}
