@@ -1,6 +1,8 @@
 import "server-only";
 import type { Filter } from "mongodb";
-import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type ObjectId, type UserDoc } from "./db";
+import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type ObjectId, type UserDoc } from "./db";
+import { holdsSlot } from "./payments";
+import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
 
 // Read-only data access used by Server Components. Everything returned here is
@@ -56,6 +58,8 @@ export type Lesson = {
   other_name: string;
   other_avatar: string;
   review_rating: number | null;
+  // What the student paid; null for lessons booked before online payment.
+  payment: { status: LessonPayment["status"]; amount_label: string } | null;
 };
 
 const ACTIVE_TUTOR = { role: "tutor", status: "active", "tutor.approved": true } as const;
@@ -200,7 +204,7 @@ export async function getTutorBusySlots(tutorId: string): Promise<string[]> {
   const _id = toObjectId(tutorId);
   if (!_id) return [];
   const db = await getDb();
-  const lessons = await db.lessons.find({ tutorId: _id, status: { $in: ["pending", "confirmed"] }, startsAt: { $gt: new Date() } }).toArray();
+  const lessons = await db.lessons.find({ tutorId: _id, startsAt: { $gt: new Date() }, ...holdsSlot() }).toArray();
   return lessons.map((l) => l.startsAt.toISOString());
 }
 
@@ -208,7 +212,11 @@ export async function getTutorBusySlots(tutorId: string): Promise<string[]> {
 
 async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<Lesson[]> {
   const db = await getDb();
-  const lessons = await db.lessons.find(role === "student" ? { studentId: userId } : { tutorId: userId }).sort({ startsAt: -1 }).toArray();
+  // Tutors only see a booking once it has been paid for.
+  const lessons = await db.lessons
+    .find(role === "student" ? { studentId: userId } : { tutorId: userId, "payment.status": { $nin: ["pending", "failed"] } })
+    .sort({ startsAt: -1 })
+    .toArray();
   const otherIds = lessons.map((l) => (role === "student" ? l.tutorId : l.studentId));
   const [others, names, reviews] = await Promise.all([
     usersById(otherIds),
@@ -232,6 +240,7 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
       other_name: other?.name ?? "Ancien membre",
       other_avatar: other?.avatarUrl ?? "",
       review_rating: ratingByLesson.get(l._id.toHexString()) ?? null,
+      payment: l.payment ? { status: l.payment.status, amount_label: formatMoney(l.payment.amount, l.payment.currency) } : null,
     };
   });
 }

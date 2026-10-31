@@ -78,7 +78,24 @@ export type LessonDoc = {
   quizzes?: QuizResult[];
   // AI assistant: transcribes each participant who agreed, for captions and the recap.
   assistant?: { enabled: boolean; consent: Record<string, boolean> };
+  // Absent on lessons booked before online payment existed (treated as settled).
+  payment?: LessonPayment;
   createdAt: Date;
+};
+
+// What the student paid for a lesson, in their own currency (the price stays in euros).
+export type LessonPayment = {
+  provider: "flutterwave" | "demo";
+  reference: string;
+  status: "pending" | "paid" | "failed" | "refunded" | "refund_failed";
+  amount: number;
+  currency: string;
+  country: string;
+  method?: string;
+  providerTxId?: string;
+  createdAt: Date;
+  paidAt?: Date;
+  refundedAt?: Date;
 };
 
 export type LiveQuiz = {
@@ -207,6 +224,7 @@ async function init(): Promise<Collections> {
     c.languages.createIndex({ slug: 1 }, { unique: true }),
     c.lessons.createIndex({ tutorId: 1, startsAt: 1 }),
     c.lessons.createIndex({ studentId: 1, startsAt: 1 }),
+    c.lessons.createIndex({ "payment.reference": 1 }, { unique: true, partialFilterExpression: { "payment.reference": { $exists: true } } }),
     c.reviews.createIndex({ lessonId: 1 }, { unique: true }),
     c.reviews.createIndex({ tutorId: 1, createdAt: -1 }),
     c.messages.createIndex({ senderId: 1, recipientId: 1, _id: 1 }),
