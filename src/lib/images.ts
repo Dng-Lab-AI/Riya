@@ -2,7 +2,6 @@ import type { StaticImageData } from "next/image";
 import marcheAbidjan from "../../public/images/marche-abidjan.jpg";
 import tissusAbidjan from "../../public/images/tissus-abidjan.jpg";
 import stoneTown from "../../public/images/stone-town.jpg";
-import dakar from "../../public/images/dakar.jpg";
 import addisAbeba from "../../public/images/addis-abeba.jpg";
 import cap from "../../public/images/cap.jpg";
 import madagascar from "../../public/images/madagascar.jpg";
@@ -22,7 +21,6 @@ export const PHOTOS = {
   marche: { src: marcheAbidjan, alt: "Femmes en pagne au marché d'Adjamé, à Abidjan" },
   tissus: { src: tissusAbidjan, alt: "Rouleaux de pagnes wax aux motifs colorés" },
   stoneTown: { src: stoneTown, alt: "Rue animée de Stone Town, à Zanzibar" },
-  dakar: { src: dakar, alt: "Vue sur Dakar et l'océan Atlantique" },
   addis: { src: addisAbeba, alt: "Immeubles d'Addis-Abeba, en Éthiopie" },
   cap: { src: cap, alt: "Vue aérienne du Cap, en Afrique du Sud" },
   madagascar: { src: madagascar, alt: "L'allée des baobabs, à Madagascar" },
