@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, Mic } from "lucide-react";
 import { login, register } from "@/lib/actions/auth";
 import { SubmitButton, useKeepValuesForm } from "./client";
+import { CountrySelect } from "./CountrySelect";
 import { FormAlert } from "./ui";
 
 export function LoginForm({ suite }: { suite: string }) {
@@ -56,7 +57,8 @@ export function RegisterForm({ suite, defaultRole }: { suite: string; defaultRol
       </div>
       <div>
         <label className="label" htmlFor="country">Pays de résidence</label>
-        <input id="country" name="country" autoComplete="country-name" className="input" placeholder="Ex. : Sénégal, France, Canada…" />
+        <CountrySelect />
+        <p className="mt-1 text-xs text-earth-500">Pour vous proposer les bons moyens de paiement (mobile money, carte…).</p>
       </div>
       <div>
         <label className="label" htmlFor="email">E-mail</label>

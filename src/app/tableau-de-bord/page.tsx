@@ -5,9 +5,10 @@ import { TutorTile } from "@/components/cards";
 import { LocalDateTime, SubmitButton } from "@/components/client";
 import { ReviewForm } from "@/components/ReviewForm";
 import { Avatar, EmptyState, PageHeader, Stars } from "@/components/ui";
-import { updateLesson } from "@/lib/actions/lessons";
+import { payLesson, updateLesson } from "@/lib/actions/lessons";
 import { requireUser } from "@/lib/auth";
 import { LESSON_STATUS, first, formatPrice } from "@/lib/constants";
+import { FREE_CANCELLATION_HOURS, commissionRate } from "@/lib/payments";
 import { getFavoriteTutors, getStudentLessons, getTutor, getTutorFeedbackOverview, getTutorLessons, type Lesson, type TutorFeedbackOverview } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Mes cours" };
@@ -16,6 +17,14 @@ const hasStarted = (l: Lesson) => new Date(l.starts_at).getTime() <= Date.now();
 const isUpcoming = (l: Lesson) => ["pending", "confirmed"].includes(l.status) && !hasStarted(l);
 const byDateAsc = (a: Lesson, b: Lesson) => a.starts_at.localeCompare(b.starts_at);
 // Confirmed lessons stay joinable until 30 minutes after their end.
+const PAYMENT_LABELS: Record<NonNullable<Lesson["payment"]>["status"], { label: string; className: string }> = {
+  paid: { label: "Payé", className: "bg-forest-100 text-forest-800" },
+  pending: { label: "Paiement en attente", className: "bg-ochre-100 text-ochre-800" },
+  failed: { label: "Paiement non abouti", className: "bg-clay-100 text-clay-800" },
+  refunded: { label: "Remboursé", className: "bg-sand-200 text-earth-800" },
+  refund_failed: { label: "Remboursement en cours", className: "bg-ochre-100 text-ochre-800" },
+};
+
 const upcomingOrLive = (l: Lesson) => new Date(l.starts_at).getTime() + (l.duration_minutes + 30) * 60 * 1000 > Date.now();
 
 function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) {
@@ -34,6 +43,9 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
             <span className="font-semibold">{lesson.other_name}</span>
           )}
           <span className={`chip ${status.className}`}>{status.label}</span>
+          {as === "student" && lesson.payment && (
+            <span className={`chip ${PAYMENT_LABELS[lesson.payment.status].className}`}>{PAYMENT_LABELS[lesson.payment.status].label} · {lesson.payment.amount_label}</span>
+          )}
         </div>
         <p className="mt-0.5 text-sm text-earth-600">
           {lesson.language_name} · <LocalDateTime iso={lesson.starts_at} /> · {lesson.duration_minutes} min · {formatPrice(lesson.price)}
@@ -43,6 +55,9 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {as === "student" && lesson.status === "pending" && upcoming && (lesson.payment?.status === "pending" || lesson.payment?.status === "failed") && (
+          <form action={payLesson.bind(null, lesson.id)}><SubmitButton className="btn-primary"><Wallet size={16} /> Payer</SubmitButton></form>
+        )}
         {lesson.status === "confirmed" && upcomingOrLive(lesson) && (
           <Link href={`/classe/${lesson.id}`} className="btn-dark"><Video size={16} /> Salle de classe</Link>
         )}
@@ -133,7 +148,9 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Star; label: string; 
 
 export default async function DashboardPage({ searchParams }: PageProps<"/tableau-de-bord">) {
   const user = await requireUser("/tableau-de-bord");
-  const justBooked = first((await searchParams).reserve) === "1";
+  const sp = await searchParams;
+  const justBooked = first(sp.reserve) === "1";
+  const slotLost = first(sp.creneau) === "perdu";
 
   if (user.role === "tutor") {
     const [lessons, profile, feedback] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getTutorFeedbackOverview(user._id)]);
@@ -141,7 +158,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
     const upcoming = lessons.filter((l) => l.status === "confirmed" && isUpcoming(l)).sort(byDateAsc);
     const toClose = lessons.filter((l) => l.status === "confirmed" && !isUpcoming(l));
     const history = lessons.filter((l) => !isUpcoming(l) && l.status !== "confirmed");
-    const earnings = lessons.filter((l) => l.status === "completed").reduce((sum, l) => sum + l.price, 0);
+    const commission = commissionRate();
+    const earnings = lessons.filter((l) => l.status === "completed").reduce((sum, l) => sum + l.price * (1 - commission), 0);
 
     return (
       <>
@@ -158,7 +176,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
           )}
           <div className="grid gap-4 sm:grid-cols-3">
             <Stat icon={CalendarDays} label="Cours à venir" value={upcoming.length} />
-            <Stat icon={Wallet} label="Revenus (cours terminés)" value={formatPrice(earnings)} />
+            <Stat icon={Wallet} label={`Revenus nets (commission ${Math.round(commission * 100)} %)`} value={formatPrice(Math.round(earnings * 100) / 100)} />
             <Stat icon={Star} label="Note moyenne" value={profile?.rating ? `${profile.rating.toFixed(1)} / 5` : "–"} />
           </div>
           <LessonList title="Demandes à traiter" lessons={requests} as="tutor" empty={<EmptyState title="Aucune nouvelle demande" />} />
@@ -186,6 +204,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
             Demande envoyée ! Le tuteur va la confirmer, puis le lien de visio apparaîtra ici.
           </p>
         )}
+        {slotLost && (
+          <p className="rounded-2xl bg-clay-50 p-5 font-medium text-clay-800">
+            Ce créneau n&apos;est plus disponible : la réservation a été annulée sans frais. Choisissez un autre horaire.
+          </p>
+        )}
         {user.role === "admin" && (
           <p className="rounded-2xl bg-sand-100 p-5 text-earth-700">Vous êtes administrateur. <Link href="/admin" className="font-semibold text-clay-700 underline">Ouvrir l&apos;administration</Link></p>
         )}
@@ -195,6 +218,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
           as="student"
           empty={<EmptyState title="Aucun cours prévu"><Link href="/tuteurs" className="btn-primary mt-3">Trouver un tuteur</Link></EmptyState>}
         />
+        <p className="-mt-7 text-sm text-earth-500">Annulation gratuite jusqu&apos;à {FREE_CANCELLATION_HOURS} h avant le cours. Remboursement complet si le tuteur refuse ou annule.</p>
         {favorites.length > 0 && (
           <section>
             <h2 className="mb-4 font-display text-2xl font-semibold">Mes tuteurs favoris</h2>

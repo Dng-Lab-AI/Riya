@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { bookLesson } from "@/lib/actions/lessons";
 import { TIME_SLOTS } from "@/lib/constants";
+import { METHODS, countryGroups, formatMoney, quoteFor } from "@/lib/payments/countries";
 import { SubmitButton, useKeepValuesForm } from "./client";
 import { FormAlert } from "./ui";
 
@@ -18,12 +19,21 @@ function toLocalDayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function BookingForm(props: { tutorId: string; languages: { slug: string; name: string }[]; busySlots: string[] }) {
+type BookingProps = {
+  tutorId: string;
+  languages: { slug: string; name: string }[];
+  busySlots: string[];
+  priceEur: number;
+  defaultCountry: string;
+  rates: Record<string, number>;
+};
+
+export function BookingForm(props: BookingProps) {
   if (!useIsClient()) return <div className="h-96 animate-pulse rounded-xl bg-sand-100" />;
   return <BookingFormInner {...props} />;
 }
 
-function BookingFormInner({ tutorId, languages, busySlots }: { tutorId: string; languages: { slug: string; name: string }[]; busySlots: string[] }) {
+function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCountry, rates }: BookingProps) {
   const { state, pending, onSubmit } = useKeepValuesForm(bookLesson.bind(null, tutorId));
   const days = useMemo(() => {
     const today = new Date();
@@ -35,6 +45,9 @@ function BookingFormInner({ tutorId, languages, busySlots }: { tutorId: string; 
   const [now] = useState(() => Date.now());
   const [day, setDay] = useState(days[1].key);
   const [startsAt, setStartsAt] = useState("");
+  const [country, setCountry] = useState(defaultCountry);
+  const quote = quoteFor(country, priceEur, rates);
+  const total = formatMoney(quote.amount, quote.currency);
 
   const busy = useMemo(() => new Set(busySlots.map((iso) => new Date(iso).getTime())), [busySlots]);
   const slots = TIME_SLOTS.map((time) => {
@@ -101,10 +114,29 @@ function BookingFormInner({ tutorId, languages, busySlots }: { tutorId: string; 
         <textarea id="message" name="message" rows={3} className="input" placeholder="Votre niveau, vos objectifs…" />
       </div>
 
+      <div className="rounded-2xl bg-sand-50 p-4">
+        <label className="label" htmlFor="country">Vous payez depuis</label>
+        <select id="country" name="country" value={country} onChange={(e) => setCountry(e.target.value)} className="input">
+          {countryGroups().map(([group, names]) => (
+            <optgroup key={group} label={group}>
+              {names.map((name) => <option key={name} value={name}>{name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <div className="mt-3 flex items-baseline justify-between gap-2">
+          <span className="text-sm text-earth-600">Total</span>
+          <span className="font-display text-2xl font-semibold">{total}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {quote.methods.map((id) => <span key={id} className="chip bg-white">{METHODS[id].label}</span>)}
+        </div>
+      </div>
+
       <FormAlert state={state} />
-      <SubmitButton pending={pending} className="btn-primary w-full" disabled={!startsAt} pendingText="Réservation…">
-        {startsAt ? "Envoyer la demande de réservation" : "Choisissez un créneau"}
+      <SubmitButton pending={pending} className="btn-primary w-full" disabled={!startsAt} pendingText="Redirection vers le paiement…">
+        {startsAt ? `Réserver et payer ${total}` : "Choisissez un créneau"}
       </SubmitButton>
+      <p className="text-center text-xs text-earth-500">Remboursé si le tuteur refuse. Annulation gratuite jusqu&apos;à 24 h avant le cours.</p>
     </form>
   );
 }
