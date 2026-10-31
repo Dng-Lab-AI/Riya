@@ -16,7 +16,7 @@ export function AccountForm({ name, email, country, avatarUrl }: { name: string;
   const validPhoto = /^https:\/\/\S+$/.test(preview.avatarUrl) ? preview.avatarUrl : "";
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[1fr_18rem]">
+    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
       <Panel title="Vos informations" description="Elles apparaissent sur vos messages, vos réservations et, pour les tuteurs, sur votre profil public.">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -114,7 +114,7 @@ export function TutorProfileForm({ profile, languages, levels, commission }: Tut
   const local = quoteFor("Cameroun", rate || 0);
 
   return (
-    <form onSubmit={onSubmit} onInput={(e) => setChecklist(completion(e.currentTarget, profile, levels))} className="grid gap-6 xl:grid-cols-[1fr_18rem]">
+    <form onSubmit={onSubmit} onInput={(e) => setChecklist(completion(e.currentTarget, profile, levels))} className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="space-y-6">
         <Panel title="Présentation" description="Ce que les élèves lisent en premier sur votre profil.">
           <div className="space-y-4">
