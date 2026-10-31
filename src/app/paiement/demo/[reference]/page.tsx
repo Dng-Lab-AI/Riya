@@ -10,7 +10,7 @@ import { activeProvider } from "@/lib/payments/provider";
 
 export const metadata: Metadata = { title: "Paiement (démo)" };
 
-// Stand-in for the provider's checkout while no payment key is configured (never in production).
+// Stand-in for the provider's checkout while no payment key is configured.
 export default async function DemoCheckoutPage({ params }: PageProps<"/paiement/demo/[reference]">) {
   if (activeProvider() !== "demo") notFound();
   const user = await requireUser("/tableau-de-bord");
