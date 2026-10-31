@@ -3,6 +3,7 @@
 import { changePassword, updateAccount, updateTutorProfile } from "@/lib/actions/profile";
 import { AVAILABILITY, SPECIALTIES } from "@/lib/constants";
 import { SubmitButton, useKeepValuesForm } from "./client";
+import { CountrySelect } from "./CountrySelect";
 import { FormAlert } from "./ui";
 
 export function AccountForm({ name, country, avatarUrl }: { name: string; country: string; avatarUrl: string }) {
@@ -16,7 +17,7 @@ export function AccountForm({ name, country, avatarUrl }: { name: string; countr
         </div>
         <div>
           <label className="label" htmlFor="country">Pays</label>
-          <input id="country" name="country" defaultValue={country} className="input" />
+          <CountrySelect defaultValue={country} />
         </div>
       </div>
       <div>

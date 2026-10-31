@@ -7,6 +7,8 @@ import { Avatar, EmptyState, Rating, Stars } from "@/components/ui";
 import { toggleFavorite } from "@/lib/actions/lessons";
 import { getCurrentUser } from "@/lib/auth";
 import { AVAILABILITY, SITE, SPECIALTIES, formatPrice, labelFor, timeAgo } from "@/lib/constants";
+import { fxRates, quoteLesson } from "@/lib/payments";
+import { LAUNCH_COUNTRY, findCountry, formatMoney, isKnownCountry } from "@/lib/payments/countries";
 import { getTutor, getTutorBusySlots, getTutorReviews, isFavorite } from "@/lib/queries";
 
 async function loadTutor(params: PageProps<"/tuteurs/[id]">["params"]) {
@@ -24,6 +26,10 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
   if (!tutor || (!tutor.approved && user?.id !== tutor.id && user?.role !== "admin")) notFound();
 
   const isSelf = user?.id === tutor.id;
+  // Price shown in the visitor's currency; visitors who are not signed in see the launch country's.
+  const known = findCountry(user?.country).name;
+  const payCountry = isKnownCountry(known) ? known : LAUNCH_COUNTRY;
+  const localPrice = quoteLesson(payCountry, tutor.hourly_rate);
   const [reviews, favorite, busySlots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBusySlots(tutor.id)]);
 
   return (
@@ -122,7 +128,10 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
         <aside id="reserver" className="h-fit scroll-mt-24 lg:sticky lg:top-24">
           <div className="card p-6">
             <div className="flex items-baseline justify-between">
-              <p className="font-display text-3xl font-semibold">{formatPrice(tutor.hourly_rate)}</p>
+              <div>
+                <p className="font-display text-3xl font-semibold">{formatMoney(localPrice.amount, localPrice.currency)}</p>
+                {localPrice.currency !== "EUR" && <p className="text-xs text-earth-500">soit {formatPrice(tutor.hourly_rate)}</p>}
+              </div>
               <p className="text-sm text-earth-500">cours de {SITE.lessonMinutes} min</p>
             </div>
             <div className="mt-5">
@@ -134,7 +143,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
               ) : !tutor.approved ? (
                 <p className="text-sm text-earth-600">Les réservations ouvriront après validation du profil.</p>
               ) : user ? (
-                <BookingForm tutorId={tutor.id} languages={tutor.languages} busySlots={busySlots} />
+                <BookingForm tutorId={tutor.id} languages={tutor.languages} busySlots={busySlots} priceEur={tutor.hourly_rate} defaultCountry={payCountry} rates={fxRates()} />
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-earth-600">Connectez-vous pour choisir un créneau et réserver votre cours.</p>
@@ -148,7 +157,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
             )}
           </div>
           <p className="mt-3 px-2 text-center text-xs text-earth-500">
-            Le tuteur confirme votre demande, puis le lien de visio apparaît dans votre tableau de bord.
+            Vous payez en ligne en réservant (mobile money ou carte selon votre pays). Le tuteur confirme, puis le lien de visio apparaît dans votre tableau de bord.
           </p>
         </aside>
       </div>

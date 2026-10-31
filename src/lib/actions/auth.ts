@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSession, destroySession } from "../auth";
 import { getDb, ObjectId } from "../db";
+import { isKnownCountry } from "../payments/countries";
 import { emptyTutorProfile } from "../tutor-profile";
 import { hashPassword, verifyPassword } from "../password";
 import { safeRedirectPath, text, type FormState } from "./shared";
@@ -19,6 +20,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
   if (name.length < 2) return { error: "Indiquez votre nom." };
   if (!EMAIL_RE.test(email)) return { error: "Adresse e-mail invalide." };
   if (password.length < 8) return { error: "Le mot de passe doit contenir au moins 8 caractères." };
+  if (!isKnownCountry(country)) return { error: "Choisissez votre pays de résidence." };
 
   const db = await getDb();
   const _id = new ObjectId();

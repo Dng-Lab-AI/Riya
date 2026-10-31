@@ -5,6 +5,7 @@ import { requireUser } from "../auth";
 import { AVAILABILITY, SPECIALTIES } from "../constants";
 import { getDb } from "../db";
 import { hashPassword, verifyPassword } from "../password";
+import { isKnownCountry } from "../payments/countries";
 import { emptyTutorProfile } from "../tutor-profile";
 import { int, refreshAll, text, type FormState } from "./shared";
 
@@ -15,6 +16,7 @@ export async function updateAccount(_prev: FormState, formData: FormData): Promi
   const avatarUrl = text(formData, "avatar_url", 500);
 
   if (name.length < 2) return { error: "Indiquez votre nom." };
+  if (!isKnownCountry(country)) return { error: "Choisissez votre pays dans la liste." };
   if (avatarUrl && !/^https:\/\/\S+$/.test(avatarUrl)) return { error: "La photo doit être un lien https://." };
 
   await (await getDb()).users.updateOne({ _id: user._id }, { $set: { name, country, avatarUrl } });
