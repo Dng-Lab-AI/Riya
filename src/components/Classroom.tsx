@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bot, FolderOpen, Hand, ListChecks, Mic, MicOff, MessageSquare, MonitorUp, NotebookPen, PenLine, PhoneOff, Presentation,
+  Bot, FolderOpen, Hand, ListChecks, Maximize2, Mic, MicOff, MessageSquare, Minimize2, MonitorUp, NotebookPen, PenLine, PhoneOff, Presentation,
   Send, Smile, Subtitles, Trash2, Upload, Video, VideoOff, Wifi, WifiOff, X,
 } from "lucide-react";
 import { updateLesson } from "@/lib/actions/lessons";
@@ -110,6 +110,39 @@ function formatDuration(ms: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+const noopSubscribe = () => () => {};
+
+// Fullscreen for the whole classroom (videos, stage and controls), where the browser allows it.
+function useFullscreen() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(false);
+  const supported = useSyncExternalStore(noopSubscribe, () => document.fullscreenEnabled, () => false);
+
+  useEffect(() => {
+    const sync = () => setActive(!!ref.current && document.fullscreenElement === ref.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggle = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else ref.current?.requestFullscreen().catch(() => {});
+  }, []);
+
+  // "F" toggles fullscreen, except while typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.key.toLowerCase() !== "f" || e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select, [contenteditable]")) return;
+      toggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
+  return { ref, active, supported, toggle };
+}
+
 function ControlButton({ on = true, danger, label, onClick, children }: { on?: boolean; danger?: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
   return (
     <motion.button
@@ -189,6 +222,7 @@ export function Classroom(props: Props) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const now = useClock();
   const speechSupported = useSpeechSupported();
+  const { ref: fullscreenRef, active: isFullscreen, supported: canFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   useEffect(() => {
     panelRef.current = panel;
@@ -653,7 +687,7 @@ export function Classroom(props: Props) {
   const canCloseStage = role === "tutor" || !!ownView;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-earth-900 text-sand-50">
+    <div ref={fullscreenRef} className={`flex flex-col bg-earth-900 text-sand-50 ${isFullscreen ? "h-screen" : "h-[calc(100vh-4rem)]"}`}>
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">Cours {withDe(languageName)} avec {other.name}</p>
@@ -669,6 +703,16 @@ export function Classroom(props: Props) {
             {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
             {connected ? "Connecté" : peerOnline ? "Connexion…" : `En attente de ${otherFirst}`}
           </span>
+          {canFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Quitter le plein écran (F ou Échap)" : "Plein écran (F)"}
+              aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
+            >
+              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          )}
         </div>
       </div>
 
