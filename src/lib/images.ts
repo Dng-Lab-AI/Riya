@@ -11,6 +11,8 @@ import tuteurSourire from "../../public/images/tuteur-sourire.jpg";
 import tuteurBarbe from "../../public/images/tuteur-barbe.jpg";
 import eleveLaptop from "../../public/images/eleve-laptop.jpg";
 import eleveVisio from "../../public/images/eleve-visio.jpg";
+import goree from "../../public/images/goree.jpg";
+import amboseli from "../../public/images/amboseli.jpg";
 
 // Illustration photos (Unsplash licence, see public/images/CREDITS.md).
 // They decorate the site and never stand for a real tutor or student.
@@ -30,12 +32,14 @@ export const PHOTOS = {
   portraitJoie: { src: tuteurBarbe, alt: "Homme qui rit, poings serrés de joie" },
   eleve: { src: eleveLaptop, alt: "Élève souriante devant son ordinateur, un carnet à la main" },
   visio: { src: eleveVisio, alt: "Élève qui suit un cours en visio sur son ordinateur" },
+  goree: { src: goree, alt: "Plage et maisons colorées de l'île de Gorée, au Sénégal" },
+  amboseli: { src: amboseli, alt: "Éléphant dans la savane du parc d'Amboseli, au Kenya" },
 } satisfies Record<string, Photo>;
 
 export const REGION_PHOTOS: Record<string, Photo> = {
-  "Afrique de l'Ouest": PHOTOS.marche,
+  "Afrique de l'Ouest": PHOTOS.goree,
   "Afrique centrale": PHOTOS.tissus,
-  "Afrique de l'Est": PHOTOS.stoneTown,
+  "Afrique de l'Est": PHOTOS.amboseli,
   "Afrique australe": PHOTOS.cap,
   "Corne de l'Afrique": PHOTOS.addis,
   "Océan Indien": PHOTOS.madagascar,
