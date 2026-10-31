@@ -35,7 +35,7 @@ export default async function CheckEmailPage({ searchParams }: PageProps<"/verif
         )}
         {!isMailConfigured() && process.env.NODE_ENV !== "production" && (
           <p className="rounded-2xl bg-ochre-100 p-4 text-sm text-ochre-800">
-            Mode développement : aucun serveur d&apos;e-mail n&apos;est configuré (SMTP_HOST). Le lien de confirmation est affiché dans le terminal où tourne <code>npm run dev</code>.
+            Mode développement : aucun envoi d&apos;e-mail n&apos;est configuré (RESEND_API_KEY). Le lien de confirmation est affiché dans le terminal où tourne <code>npm run dev</code>.
           </p>
         )}
         <ResendVerificationForm email={email} />
