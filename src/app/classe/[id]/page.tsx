@@ -44,9 +44,9 @@ export default async function ClassroomPage({ params }: PageProps<"/classe/[id]"
   const phase = classroomPhase(timing);
   if (phase !== "open") {
     return (
-      <Notice title={phase === "early" ? "La salle n'est pas encore ouverte" : "Ce cours est terminé"}>
-        Votre cours {withDe(lesson.language_name)} commence <LocalDateTime iso={lesson.starts_at} />.
-        La salle ouvre 15 minutes avant le début.
+      <Notice title="Ce cours est terminé">
+        Votre cours {withDe(lesson.language_name)} a eu lieu <LocalDateTime iso={lesson.starts_at} />.
+        La salle ferme 30 minutes après la fin du cours.
       </Notice>
     );
   }
