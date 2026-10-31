@@ -1,5 +1,5 @@
 import "server-only";
-import { GridFSBucket, MongoClient, ObjectId, type Collection, type Db } from "mongodb";
+import { GridFSBucket, MongoClient, ObjectId, type Binary, type Collection, type Db } from "mongodb";
 import { seed } from "./seed";
 
 // ── Document shapes ───────────────────────────────────────
@@ -167,6 +167,9 @@ export type FeedbackDoc = {
 // Metadata stored with each GridFS file shared in a lesson.
 export type LessonFileMeta = { lessonId: ObjectId; uploaderId: ObjectId; contentType: string };
 
+// A profile photo uploaded from the device, already resized by the browser (one per user, _id = user id).
+export type AvatarDoc = { _id: ObjectId; data: Binary; contentType: string; updatedAt: Date };
+
 export type ReviewDoc = { _id: ObjectId; lessonId: ObjectId; studentId: ObjectId; tutorId: ObjectId; rating: number; comment: string; createdAt: Date };
 export type MessageDoc = { _id: ObjectId; senderId: ObjectId; recipientId: ObjectId; body: string; readAt: Date | null; createdAt: Date };
 export type TopicDoc = { _id: ObjectId; authorId: ObjectId; category: string; languageSlug: string | null; title: string; body: string; views: number; createdAt: Date };
@@ -191,6 +194,7 @@ export type Collections = {
   feedback: Collection<FeedbackDoc>;
   events: Collection<ClassEventDoc>;
   transcript: Collection<TranscriptDoc>;
+  avatars: Collection<AvatarDoc>;
   files: GridFSBucket;
   meta: Collection<{ _id: string; at: Date }>;
 };
@@ -213,6 +217,7 @@ function collectionsOf(db: Db): Collections {
     feedback: db.collection("lesson_feedback"),
     events: db.collection("classroom_events"),
     transcript: db.collection("classroom_transcript"),
+    avatars: db.collection("avatars"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     meta: db.collection("meta"),
   };

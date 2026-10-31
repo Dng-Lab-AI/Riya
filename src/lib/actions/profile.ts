@@ -1,5 +1,6 @@
 "use server";
 
+import { Binary } from "mongodb";
 import { redirect } from "next/navigation";
 import { requireUser } from "../auth";
 import { AVAILABILITY, SPECIALTIES } from "../constants";
@@ -13,15 +14,54 @@ export async function updateAccount(_prev: FormState, formData: FormData): Promi
   const user = await requireUser("/profil");
   const name = text(formData, "name", 80);
   const country = text(formData, "country", 60);
-  const avatarUrl = text(formData, "avatar_url", 500);
 
   if (name.length < 2) return { error: "Indiquez votre nom." };
   if (!isKnownCountry(country)) return { error: "Choisissez votre pays dans la liste." };
-  if (avatarUrl && !/^https:\/\/\S+$/.test(avatarUrl)) return { error: "La photo doit être un lien https://." };
 
-  await (await getDb()).users.updateOne({ _id: user._id }, { $set: { name, country, avatarUrl } });
+  await (await getDb()).users.updateOne({ _id: user._id }, { $set: { name, country } });
   refreshAll();
   return { success: "Compte mis à jour." };
+}
+
+// The browser sends the photo already cropped and resized (see AvatarPicker), far under this size.
+const AVATAR_MAX_BYTES = 900 * 1024;
+
+// The real format, read from the first bytes: the declared type and file name can be anything.
+function imageType(bytes: Buffer): string | null {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  return null;
+}
+
+export type AvatarResult = { error: string } | { avatarUrl: string };
+
+export async function uploadAvatar(formData: FormData): Promise<AvatarResult> {
+  const user = await requireUser("/profil");
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Aucune photo reçue." };
+  if (file.size > AVATAR_MAX_BYTES) return { error: "Cette photo est trop lourde. Essayez-en une autre." };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const contentType = imageType(bytes);
+  if (!contentType) return { error: "Format non reconnu : choisissez une photo JPEG, PNG ou WebP." };
+
+  const db = await getDb();
+  await db.avatars.replaceOne({ _id: user._id }, { data: new Binary(bytes), contentType, updatedAt: new Date() }, { upsert: true });
+  // The version in the address makes browsers load the new photo instead of a cached one.
+  const avatarUrl = `/api/avatars/${user._id.toHexString()}?v=${Date.now()}`;
+  await db.users.updateOne({ _id: user._id }, { $set: { avatarUrl } });
+  refreshAll();
+  return { avatarUrl };
+}
+
+export async function removeAvatar(): Promise<AvatarResult> {
+  const user = await requireUser("/profil");
+  const db = await getDb();
+  await db.avatars.deleteOne({ _id: user._id });
+  await db.users.updateOne({ _id: user._id }, { $set: { avatarUrl: "" } });
+  refreshAll();
+  return { avatarUrl: "" };
 }
 
 export async function updateTutorProfile(_prev: FormState, formData: FormData): Promise<FormState> {
