@@ -105,3 +105,25 @@ body {
 @utility chip {
   @apply inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs font-medium text-earth-700;
 }
+
+/* Cadre en arche, inspiré des portes de Stone Town et des mosquées du Sahel. */
+@utility arch {
+  border-radius: 999px 999px 1.75rem 1.75rem;
+}
+
+/* Bandeau de salutations qui défile. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee { animation: none; }
+}
+
+/* Lisibilité du texte posé sur une photo. */
+.photo-shade {
+  background: linear-gradient(to top, rgb(14 42 26 / 0.92), rgb(14 42 26 / 0.35) 55%, rgb(14 42 26 / 0.05));
+}

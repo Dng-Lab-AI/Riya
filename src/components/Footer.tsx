@@ -33,8 +33,13 @@ const COLUMNS = [
 
 export function Footer() {
   return (
-    <footer className="bg-forest-900 text-sand-200">
-      <div className="kente-strip" />
+    <footer className="mt-auto overflow-hidden rounded-t-[2.5rem] bg-forest-900 text-sand-200">
+      <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 border-b border-white/10 px-4 py-12 sm:px-6 md:flex-row md:items-center lg:px-8">
+        <p className="font-display text-3xl font-semibold leading-tight text-sand-50 md:text-5xl">
+          Prêt à dire <span className="italic text-ochre-300">Habari</span> ?
+        </p>
+        <Link href="/tuteurs" className="btn bg-ochre-400 px-6 py-3 text-base text-forest-900 hover:bg-ochre-300">Trouver mon tuteur</Link>
+      </div>
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Logo light />
@@ -53,8 +58,9 @@ export function Footer() {
           </div>
         ))}
       </div>
-      <div className="border-t border-white/10 py-6 text-center text-xs text-sand-300">
-        © {new Date().getFullYear()} {SITE.name}. Fait avec fierté pour les langues africaines.
+      <div className="kente-strip opacity-80" />
+      <div className="py-6 text-center text-xs text-sand-300">
+        © {new Date().getFullYear()} {SITE.name}. Fait avec fierté pour les langues africaines. Photos : <a href="https://unsplash.com" className="underline hover:text-white">Unsplash</a>.
       </div>
     </footer>
   );

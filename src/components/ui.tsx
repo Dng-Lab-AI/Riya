@@ -1,4 +1,6 @@
+import Image from "next/image";
 import { Star } from "lucide-react";
+import type { Photo } from "@/lib/images";
 
 // Small presentational building blocks shared across pages (server-safe).
 
@@ -46,13 +48,23 @@ export function FormAlert({ state }: { state: { error?: string; success?: string
   return null;
 }
 
-export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: React.ReactNode }) {
+export function PageHeader({ eyebrow, title, photo, children }: { eyebrow?: string; title: string; photo?: Photo; children?: React.ReactNode }) {
   return (
-    <div className="pattern-bogolan border-b border-sand-200">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        {eyebrow && <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-clay-600">{eyebrow}</p>}
-        <h1 className="font-display text-3xl font-semibold text-earth-900 sm:text-4xl">{title}</h1>
-        {children && <div className="mt-3 max-w-2xl text-earth-600">{children}</div>}
+    <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden rounded-[2rem] bg-sand-100">
+        <div className="pattern-bogolan absolute inset-0 opacity-60" />
+        <div className={`relative grid items-center gap-6 ${photo ? "md:grid-cols-[1fr_auto]" : ""}`}>
+          <div className="px-6 py-10 sm:px-10 md:py-12">
+            {eyebrow && <p className="mb-3 inline-block rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-clay-600">{eyebrow}</p>}
+            <h1 className="font-display text-3xl font-semibold leading-tight text-earth-900 sm:text-5xl">{title}</h1>
+            {children && <div className="mt-3 max-w-2xl text-earth-600">{children}</div>}
+          </div>
+          {photo && (
+            <div className="relative mr-10 hidden h-56 w-80 self-end overflow-hidden md:block" style={{ borderRadius: "999px 999px 0 0" }}>
+              <Image src={photo.src} alt={photo.alt} fill sizes="320px" placeholder="blur" className="object-cover" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
