@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 
-const POLL_MS = 8000;
+const POLL_MS = 3000;
 
 // The message icon in the header, kept live everywhere: it polls the unread count, and when
 // it rises it shows a short toast (and a browser notification if the tab is hidden and allowed).
@@ -48,11 +48,17 @@ export function LiveMessageBadge({ initialUnread }: { initialUnread: number }) {
     };
 
     const timer = setInterval(poll, POLL_MS);
+    // Check straight away whenever the tab comes back to the foreground.
+    const onActive = () => document.visibilityState === "visible" && poll();
+    window.addEventListener("focus", onActive);
+    document.addEventListener("visibilitychange", onActive);
     poll();
     return () => {
       alive = false;
       clearInterval(timer);
       clearTimeout(toastTimer.id);
+      window.removeEventListener("focus", onActive);
+      document.removeEventListener("visibilitychange", onActive);
     };
   }, [pathname]);
 
