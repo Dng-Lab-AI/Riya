@@ -577,3 +577,48 @@ export async function getTutorFeedbackOverview(tutorId: ObjectId): Promise<Tutor
     })),
   };
 }
+
+// ── Payments ──────────────────────────────────────────────
+
+export type PaymentRow = {
+  lesson_id: string;
+  starts_at: string;
+  other_name: string;
+  language_name: string;
+  amount_label: string;
+  status: LessonPayment["status"];
+  method: string | null;
+};
+
+// Every payment a student made, newest first (abandoned checkouts included, so nothing looks lost).
+export async function getStudentPayments(userId: ObjectId): Promise<PaymentRow[]> {
+  const db = await getDb();
+  const lessons = await db.lessons.find({ studentId: userId, payment: { $exists: true } }).sort({ "payment.createdAt": -1 }).toArray();
+  const [tutors, names] = await Promise.all([usersById(lessons.map((l) => l.tutorId)), languageNames()]);
+  return lessons.map((l) => ({
+    lesson_id: l._id.toHexString(),
+    starts_at: l.startsAt.toISOString(),
+    other_name: tutors.get(l.tutorId.toHexString())?.name ?? "Ancien membre",
+    language_name: names.get(l.languageSlug) ?? l.languageSlug,
+    amount_label: formatMoney(l.payment!.amount, l.payment!.currency),
+    status: l.payment!.status,
+    method: l.payment!.method ?? null,
+  }));
+}
+
+export type EarningRow = { lesson_id: string; starts_at: string; other_name: string; language_name: string; price: number; net: number };
+
+// What a tutor earned on each completed lesson, after Riya's commission.
+export async function getTutorEarnings(userId: ObjectId, commission: number): Promise<EarningRow[]> {
+  const db = await getDb();
+  const lessons = await db.lessons.find({ tutorId: userId, status: "completed" }).sort({ startsAt: -1 }).toArray();
+  const [students, names] = await Promise.all([usersById(lessons.map((l) => l.studentId)), languageNames()]);
+  return lessons.map((l) => ({
+    lesson_id: l._id.toHexString(),
+    starts_at: l.startsAt.toISOString(),
+    other_name: students.get(l.studentId.toHexString())?.name ?? "Ancien membre",
+    language_name: names.get(l.languageSlug) ?? l.languageSlug,
+    price: l.price,
+    net: Math.round(l.price * (1 - commission) * 100) / 100,
+  }));
+}

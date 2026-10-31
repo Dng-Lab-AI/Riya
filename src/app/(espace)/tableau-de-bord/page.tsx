@@ -4,7 +4,7 @@ import { CalendarDays, CircleCheck, NotebookText, Star, Video, Wallet } from "lu
 import { TutorTile } from "@/components/cards";
 import { LocalDateTime, SubmitButton } from "@/components/client";
 import { ReviewForm } from "@/components/ReviewForm";
-import { Avatar, EmptyState, PageHeader, Stars } from "@/components/ui";
+import { Avatar, EmptyState, EspaceHeader, Stars } from "@/components/ui";
 import { payLesson, updateLesson } from "@/lib/actions/lessons";
 import { requireUser } from "@/lib/auth";
 import { LESSON_STATUS, first, formatPrice } from "@/lib/constants";
@@ -163,15 +163,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
 
     return (
       <>
-        <PageHeader eyebrow="Espace tuteur" title={`Karibu, ${user.name.split(" ")[0]} !`}>
-          Gérez vos demandes de cours et votre planning.
-        </PageHeader>
-        <div className="mx-auto max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+        <EspaceHeader title={`Karibu, ${user.name.split(" ")[0]} !`}>Gérez vos demandes de cours et votre planning.</EspaceHeader>
+        <div className="space-y-10">
           {profile && (!profile.approved || !profile.headline) && (
             <div className="rounded-2xl bg-ochre-100 p-5 text-ochre-800">
               <p className="font-semibold">{profile.headline ? "Votre profil est en cours de validation." : "Complétez votre profil pour apparaître dans les recherches."}</p>
               <p className="mt-1 text-sm">Les élèves pourront vous réserver dès que notre équipe aura validé votre profil.</p>
-              <Link href="/profil" className="btn-dark mt-3">Compléter mon profil</Link>
+              <Link href="/profil/tuteur" className="btn-dark mt-3">Compléter mon profil</Link>
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -195,10 +193,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
 
   return (
     <>
-      <PageHeader eyebrow="Mon espace" title={`Habari, ${user.name.split(" ")[0]} !`}>
-        Retrouvez vos cours, laissez des avis et suivez vos tuteurs favoris.
-      </PageHeader>
-      <div className="mx-auto max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+      <EspaceHeader title={`Habari, ${user.name.split(" ")[0]} !`}>Retrouvez vos cours, laissez des avis et suivez vos tuteurs favoris.</EspaceHeader>
+      <div className="space-y-10">
         {justBooked && (
           <p className="rounded-2xl bg-forest-100 p-5 font-medium text-forest-800">
             Demande envoyée ! Le tuteur va la confirmer, puis le lien de visio apparaîtra ici.

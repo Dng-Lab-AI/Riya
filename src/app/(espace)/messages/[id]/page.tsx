@@ -23,7 +23,7 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
   const messages = await getThread(user._id, otherId);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex max-w-3xl flex-col">
       <div className="card flex items-center gap-3 p-4">
         <Link href="/messages" className="btn-ghost" aria-label="Retour"><ArrowLeft size={18} /></Link>
         <Avatar name={other.name} src={other.avatar_url} size={44} />

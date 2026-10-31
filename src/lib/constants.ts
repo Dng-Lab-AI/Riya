@@ -1,5 +1,7 @@
 // Shared, client-safe constants and helpers.
 
+import { formatMoney } from "./payments/countries";
+
 export const SITE = {
   name: "Riya",
   tagline: "Les langues d'Afrique, avec celles et ceux qui les parlent",
@@ -62,8 +64,9 @@ export function splitList(value: string | null | undefined): string[] {
   return (value ?? "").split(",").map((v) => v.trim()).filter(Boolean);
 }
 
+// Tutor prices are in euros: "15 €", "12,75 €".
 export function formatPrice(amount: number) {
-  return `${amount} ${SITE.currency}`;
+  return formatMoney(amount, "EUR");
 }
 
 // SQLite datetime('now') yields "YYYY-MM-DD HH:MM:SS" in UTC; turn it into ISO 8601.
