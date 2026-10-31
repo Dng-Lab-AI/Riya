@@ -1,24 +1,18 @@
 import "server-only";
 import { getDb, toObjectId, type LessonDoc, type ObjectId } from "./db";
 
-// The classroom opens 15 minutes before the lesson and closes 30 minutes after its end.
-// In development it is always open for confirmed lessons, so it can be tried at any time.
-const OPENS_BEFORE_MS = 15 * 60 * 1000;
+// A confirmed lesson's classroom can be joined at any time, even before the start,
+// and closes 30 minutes after its end. In development it never closes, so it can be tried at any time.
 const CLOSES_AFTER_MS = 30 * 60 * 1000;
 
-export function classroomWindow(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes">) {
-  const start = lesson.startsAt.getTime();
-  return {
-    opensAt: new Date(start - OPENS_BEFORE_MS),
-    closesAt: new Date(start + lesson.durationMinutes * 60 * 1000 + CLOSES_AFTER_MS),
-  };
+export function classroomClosesAt(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes">) {
+  return new Date(lesson.startsAt.getTime() + lesson.durationMinutes * 60 * 1000 + CLOSES_AFTER_MS);
 }
 
 export function isClassroomOpen(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "status">, now = Date.now()) {
   if (lesson.status !== "confirmed") return false;
   if (process.env.NODE_ENV !== "production") return true;
-  const { opensAt, closesAt } = classroomWindow(lesson);
-  return now >= opensAt.getTime() && now <= closesAt.getTime();
+  return now <= classroomClosesAt(lesson).getTime();
 }
 
 // STUN lets peers discover their public address; a TURN relay is needed when
@@ -31,10 +25,9 @@ export function iceServers(): RTCIceServer[] {
   return servers;
 }
 
-export function classroomPhase(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "status">): "open" | "early" | "over" | "closed" {
+export function classroomPhase(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "status">): "open" | "over" | "closed" {
   if (lesson.status !== "confirmed") return "closed";
-  if (isClassroomOpen(lesson)) return "open";
-  return classroomWindow(lesson).opensAt.getTime() > Date.now() ? "early" : "over";
+  return isClassroomOpen(lesson) ? "open" : "over";
 }
 
 // The lesson, if the user is its student or tutor.
