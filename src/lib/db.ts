@@ -34,7 +34,22 @@ export type UserDoc = {
   avatarUrl: string;
   favorites: ObjectId[];
   tutor?: TutorProfile;
+  // false until the owner clicks the link sent by e-mail; absent on older accounts (treated as verified).
+  emailVerified?: boolean;
+  // Set when the account signs in with Google ("sub" claim).
+  googleId?: string;
   createdAt: Date;
+};
+
+// Single-use links sent by e-mail. Only a hash of the token is stored.
+export type AuthTokenDoc = {
+  _id: string;
+  userId: ObjectId;
+  kind: "verify-email" | "reset-password";
+  // Where to send the user once the link is used.
+  next?: string;
+  createdAt: Date;
+  expiresAt: Date;
 };
 
 export type SessionDoc = { _id: string; userId: ObjectId; expiresAt: Date };
@@ -164,6 +179,7 @@ export type ClassChatDoc = { _id: ObjectId; lessonId: ObjectId; authorId: Object
 export type Collections = {
   users: Collection<UserDoc>;
   sessions: Collection<SessionDoc>;
+  authTokens: Collection<AuthTokenDoc>;
   languages: Collection<LanguageDoc>;
   lessons: Collection<LessonDoc>;
   reviews: Collection<ReviewDoc>;
@@ -185,6 +201,7 @@ function collectionsOf(db: Db): Collections {
   return {
     users: db.collection("users"),
     sessions: db.collection("sessions"),
+    authTokens: db.collection("auth_tokens"),
     languages: db.collection("languages"),
     lessons: db.collection("lessons"),
     reviews: db.collection("reviews"),
@@ -221,6 +238,9 @@ async function init(): Promise<Collections> {
     c.users.createIndex({ email: 1 }, { unique: true }),
     c.users.createIndex({ role: 1, "tutor.approved": 1 }),
     c.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    c.authTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    c.authTokens.createIndex({ userId: 1, kind: 1, createdAt: -1 }),
+    c.users.createIndex({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $exists: true } } }),
     c.languages.createIndex({ slug: 1 }, { unique: true }),
     c.lessons.createIndex({ tutorId: 1, startsAt: 1 }),
     c.lessons.createIndex({ studentId: 1, startsAt: 1 }),

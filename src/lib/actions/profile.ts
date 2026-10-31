@@ -71,17 +71,21 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
 }
 
 export async function changePassword(_prev: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser("/profil");
+  const user = await requireUser("/profil/securite");
   const current = String(formData.get("current") ?? "");
-  const next = String(formData.get("next") ?? "");
+  const next = String(formData.get("password") ?? "");
   const db = await getDb();
   const doc = await db.users.findOne({ _id: user._id }, { projection: { passwordHash: 1 } });
+  if (!doc) return { error: "Compte introuvable." };
 
-  if (!doc || !verifyPassword(current, doc.passwordHash)) return { error: "Mot de passe actuel incorrect." };
+  // Accounts created with Google have no password yet: they can set one directly.
+  if (doc.passwordHash && !verifyPassword(current, doc.passwordHash)) return { error: "Mot de passe actuel incorrect." };
   if (next.length < 8) return { error: "Le nouveau mot de passe doit contenir au moins 8 caractères." };
+  if (next !== String(formData.get("password_confirm") ?? "")) return { error: "Les deux mots de passe ne correspondent pas." };
 
   await db.users.updateOne({ _id: user._id }, { $set: { passwordHash: hashPassword(next) } });
-  return { success: "Mot de passe modifié." };
+  refreshAll();
+  return { success: doc.passwordHash ? "Mot de passe modifié." : "Mot de passe défini. Vous pouvez aussi vous connecter avec votre e-mail." };
 }
 
 // Lets an existing student open a tutor profile without creating a second account.
