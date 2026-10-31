@@ -1,6 +1,6 @@
 import "server-only";
 import type { Filter } from "mongodb";
-import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type ObjectId, type UserDoc } from "./db";
+import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type ObjectId, type UserDoc } from "./db";
 import { holdsSlot } from "./payments";
 import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
@@ -301,12 +301,12 @@ export async function getConversations(userId: ObjectId): Promise<Conversation[]
   });
 }
 
-export async function getThread(userId: ObjectId, otherId: ObjectId): Promise<Message[]> {
+// The whole thread, or only the messages after `afterId` (for live updates).
+export async function getThread(userId: ObjectId, otherId: ObjectId, afterId?: ObjectId | null): Promise<Message[]> {
   const db = await getDb();
-  const docs = await db.messages
-    .find({ $or: [{ senderId: userId, recipientId: otherId }, { senderId: otherId, recipientId: userId }] })
-    .sort({ _id: 1 })
-    .toArray();
+  const filter: Filter<MessageDoc> = { $or: [{ senderId: userId, recipientId: otherId }, { senderId: otherId, recipientId: userId }] };
+  if (afterId) filter._id = { $gt: afterId };
+  const docs = await db.messages.find(filter).sort({ _id: 1 }).toArray();
   return docs.map((m) => ({ id: m._id.toHexString(), sender_id: m.senderId.toHexString(), body: m.body, created_at: m.createdAt.toISOString() }));
 }
 

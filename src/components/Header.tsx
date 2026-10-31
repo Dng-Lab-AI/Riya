@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { LogOut, MessageCircle } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/queries";
 import { logout } from "@/lib/actions/auth";
 import { Logo } from "./ui";
 import { AccountMenu } from "./AccountMenu";
+import { LiveMessageBadge } from "./LiveMessageBadge";
 import { MobileMenu } from "./MobileMenu";
 
 const NAV = [
@@ -44,12 +45,7 @@ export async function Header() {
         <div className="hidden items-center gap-2 lg:flex">
           {user ? (
             <>
-              <Link href="/messages" className="btn-ghost relative" aria-label="Messages">
-                <MessageCircle size={20} />
-                {unread > 0 && (
-                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay-600 px-1 text-[10px] font-bold text-white">{unread}</span>
-                )}
-              </Link>
+              <LiveMessageBadge initialUnread={unread} />
               <AccountMenu name={user.name} avatarUrl={user.avatar_url} links={accountLinks} />
             </>
           ) : (
