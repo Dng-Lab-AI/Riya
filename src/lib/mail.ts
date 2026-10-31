@@ -1,12 +1,24 @@
 import "server-only";
 import nodemailer from "nodemailer";
 
-// Outgoing e-mail through any SMTP provider (Brevo, Mailgun, Gmail, OVH…), configured with
-// SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD and MAIL_FROM. Without SMTP in development,
-// messages are printed in the server console instead of being sent.
+// Outgoing e-mail through Resend (RESEND_API_KEY), or else any SMTP provider (SMTP_HOST,
+// SMTP_PORT, SMTP_USER, SMTP_PASSWORD). MAIL_FROM sets the sender for both. With neither
+// in development, messages are printed in the server console instead of being sent.
+
+const FROM = () => process.env.MAIL_FROM || "Riya <no-reply@riya.africa>";
 
 export function isMailConfigured() {
-  return !!process.env.SMTP_HOST;
+  return !!(process.env.RESEND_API_KEY || process.env.SMTP_HOST);
+}
+
+// https://resend.com/docs/api-reference/emails/send-email
+async function sendWithResend(message: { to: string; subject: string; text: string; html: string }) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: FROM(), ...message }),
+  });
+  if (!res.ok) throw new Error(`Resend a refusé l'e-mail (${res.status}) : ${await res.text()}`);
 }
 
 let transport: nodemailer.Transporter | null = null;
@@ -41,9 +53,11 @@ export async function sendActionEmail(input: { to: string; subject: string; gree
   </td></tr></table></body></html>`;
 
   if (!isMailConfigured()) {
-    if (process.env.NODE_ENV === "production") throw new Error("SMTP_HOST n'est pas configuré : impossible d'envoyer des e-mails.");
-    console.info(`\n[e-mail non envoyé, SMTP absent] À : ${input.to}\nObjet : ${input.subject}\n${input.url}\n`);
+    if (process.env.NODE_ENV === "production") throw new Error("RESEND_API_KEY n'est pas configurée : impossible d'envoyer des e-mails.");
+    console.info(`\n[e-mail non envoyé, RESEND_API_KEY absente] À : ${input.to}\nObjet : ${input.subject}\n${input.url}\n`);
     return;
   }
-  await smtp().sendMail({ from: process.env.MAIL_FROM || "Riya <no-reply@riya.africa>", to: input.to, subject: input.subject, text, html });
+  const message = { to: input.to, subject: input.subject, text, html };
+  if (process.env.RESEND_API_KEY) await sendWithResend(message);
+  else await smtp().sendMail({ from: FROM(), ...message });
 }

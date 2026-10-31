@@ -86,6 +86,6 @@ Sur certains réseaux très fermés (réseaux d'entreprise, certains opérateurs
 - **HTTPS obligatoire** : les navigateurs n'autorisent la caméra que sur une page sécurisée.
 - **TURN** pour fiabiliser la visio (voir ci-dessus).
 - **Paiement** : créer un compte Flutterwave (entreprise camerounaise), renseigner `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_WEBHOOK_HASH` et `SITE_URL`, puis tester avec les clés de test avant les clés réelles. Les versements aux tuteurs (part après commission `RIYA_COMMISSION`) se font encore à la main.
-- **E-mails** : renseigner un serveur SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`) pour envoyer la confirmation d'adresse et le mot de passe oublié ; sans SMTP en production, l'inscription échoue. Restent à faire : les notifications (réservation, rappel de cours).
+- **E-mails** : renseigner `RESEND_API_KEY` et `MAIL_FROM` (ou, à défaut, un serveur SMTP : `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`) pour envoyer la confirmation d'adresse et le mot de passe oublié ; sans envoi d'e-mail configuré en production, l'inscription échoue. Restent à faire : les notifications (réservation, rappel de cours).
 - **Google** : créer un identifiant OAuth (application Web) et renseigner `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`, avec l'URI de redirection `https://votre-site/api/auth/google/callback`.
 - **Hébergement** : la signalisation fonctionne par requêtes régulières. Elle convient à un hébergement classique comme serverless, avec une base MongoDB Atlas.
