@@ -16,5 +16,7 @@ Toutes les photos viennent d'[Unsplash](https://unsplash.com) et sont utilisées
 | `tuteur-barbe.jpg` | Portrait en studio | wakky Paul |
 | `eleve-laptop.jpg` | Élève devant son ordinateur | Vitaly Gariev |
 | `eleve-visio.jpg` | Cours en visio | Vitaly Gariev |
+| `goree.jpg` | Île de Gorée, Dakar (Sénégal) | aliunix |
+| `amboseli.jpg` | Éléphant, parc d'Amboseli (Kenya) | Advik Mehta |
 
 Ces photos illustrent le site : ce ne sont pas des photos des tuteurs ou des élèves inscrits.
