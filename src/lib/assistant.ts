@@ -1,5 +1,5 @@
 import "server-only";
-import { AI_MODEL, isAiAvailable, jsonFormat, openai } from "./ai";
+import { isAiAvailable, jsonFormat, modelOptions, openai } from "./ai";
 import { getDb, type LessonDoc } from "./db";
 
 // In-class AI helper: answers quick questions ("what does … mean?") and drafts
@@ -41,9 +41,7 @@ async function lessonContext(lesson: LessonDoc) {
 export async function askAssistant(lesson: LessonDoc, question: string, askerIsTutor: boolean): Promise<string> {
   const { languageName, text } = await lessonContext(lesson);
   const response = await openai().responses.create({
-    model: AI_MODEL,
-    reasoning: { effort: "low" },
-    max_output_tokens: 4000,
+    ...modelOptions("low", 4000),
     instructions:
       `Tu es l'assistant de Riya, présent pendant un cours particulier de ${languageName}. ` +
       `Tu réponds ${askerIsTutor ? "au tuteur" : "à l'élève"} en français, en 2 à 6 phrases, sans titres ni longues listes. ` +
@@ -72,9 +70,7 @@ const QUIZ_SCHEMA = {
 export async function draftQuiz(lesson: LessonDoc): Promise<QuizDraft> {
   const { languageName, text } = await lessonContext(lesson);
   const response = await openai().responses.create({
-    model: AI_MODEL,
-    reasoning: { effort: "low" },
-    max_output_tokens: 4000,
+    ...modelOptions("low", 4000),
     text: jsonFormat("question_de_quiz", QUIZ_SCHEMA),
     instructions:
       `Tu prépares une question de quiz à choix multiple pour un cours de ${languageName}, que le tuteur relira avant de la poser. ` +
