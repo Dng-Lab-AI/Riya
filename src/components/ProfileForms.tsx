@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Circle, Save } from "lucide-react";
-import { changePassword, updateAccount, updateTutorProfile } from "@/lib/actions/profile";
+import { useRef, useState, useTransition } from "react";
+import { Camera, Check, Circle, Loader2, Save, Trash2, Upload } from "lucide-react";
+import { changePassword, removeAvatar, updateAccount, updateTutorProfile, uploadAvatar, type AvatarResult } from "@/lib/actions/profile";
 import { AVAILABILITY, SPECIALTIES } from "@/lib/constants";
 import { formatMoney, quoteFor } from "@/lib/payments/countries";
 import { NewPasswordFields, PasswordInput } from "./AuthForms";
@@ -10,15 +10,122 @@ import { SubmitButton, useKeepValuesForm } from "./client";
 import { CountrySelect } from "./CountrySelect";
 import { Avatar, FormAlert, Panel } from "./ui";
 
+const AVATAR_SIZE = 512;
+
+// Crops the picture to a centred square and shrinks it, so a 10 MB phone photo uploads as ~50 KB.
+async function squareJpeg(file: File): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const out = Math.min(AVATAR_SIZE, side);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = out;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff"; // transparent PNGs get a white background instead of black
+    ctx.fillRect(0, 0, out, out);
+    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, out, out);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob) throw new Error("toBlob");
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Photo from the computer, or the gallery / camera on a phone. Saved at once, apart from the form.
+function AvatarPicker({ name, avatarUrl, onChange }: { name: string; avatarUrl: string; onChange: (url: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+  const [busy, startBusy] = useTransition();
+
+  const apply = (result: AvatarResult) => {
+    if ("error" in result) setError(result.error);
+    else onChange(result.avatarUrl);
+  };
+
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    setError("");
+    if (!file.type.startsWith("image/")) return setError("Choisissez une image (JPEG, PNG, WebP…).");
+    startBusy(async () => {
+      let blob: Blob;
+      try {
+        blob = await squareJpeg(file);
+      } catch {
+        return setError("Impossible de lire cette image. Essayez une photo JPEG ou PNG.");
+      }
+      const data = new FormData();
+      data.append("photo", blob, "photo.jpg");
+      try {
+        apply(await uploadAvatar(data));
+      } catch {
+        setError("L'envoi a échoué. Vérifiez votre connexion et réessayez.");
+      }
+    });
+  };
+
+  return (
+    <div>
+      <p className="label">Photo de profil</p>
+      <div className="flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          className="group relative shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-600"
+          aria-label="Changer la photo de profil"
+        >
+          <Avatar name={name || "?"} src={avatarUrl} size={80} />
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-earth-900/45 text-white opacity-0 transition group-hover:opacity-100">
+            <Camera size={22} />
+          </span>
+          {busy && (
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-earth-900/55 text-white">
+              <Loader2 size={22} className="animate-spin" />
+            </span>
+          )}
+        </button>
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => input.current?.click()} disabled={busy} className="btn-outline">
+              <Upload size={16} /> {busy ? "Envoi…" : avatarUrl ? "Changer la photo" : "Ajouter une photo"}
+            </button>
+            {avatarUrl && (
+              <button type="button" onClick={() => startBusy(async () => apply(await removeAvatar()))} disabled={busy} className="btn text-clay-700 hover:bg-clay-50">
+                <Trash2 size={16} /> Retirer
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-earth-500">Depuis votre ordinateur, votre galerie ou l&apos;appareil photo. Elle est recadrée en carré.</p>
+        </div>
+      </div>
+      {error && <p role="alert" className="mt-2 text-sm text-clay-700">{error}</p>}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          pick(e.target.files?.[0]);
+          e.target.value = ""; // choosing the same file again still triggers a change
+        }}
+      />
+    </div>
+  );
+}
+
 export function AccountForm({ name, email, country, avatarUrl }: { name: string; email: string; country: string; avatarUrl: string }) {
   const { state, pending, onSubmit } = useKeepValuesForm(updateAccount);
   const [preview, setPreview] = useState({ name, avatarUrl });
-  const validPhoto = /^https:\/\/\S+$/.test(preview.avatarUrl) ? preview.avatarUrl : "";
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
       <Panel title="Vos informations" description="Elles apparaissent sur vos messages, vos réservations et, pour les tuteurs, sur votre profil public.">
         <div className="space-y-4">
+          <AvatarPicker name={preview.name} avatarUrl={preview.avatarUrl} onChange={(url) => setPreview((p) => ({ ...p, avatarUrl: url }))} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="name">Nom complet</label>
@@ -34,18 +141,6 @@ export function AccountForm({ name, email, country, avatarUrl }: { name: string;
             <CountrySelect defaultValue={country} />
             <p className="mt-1 text-xs text-earth-500">Il détermine la devise et les moyens de paiement proposés.</p>
           </div>
-          <div>
-            <label className="label" htmlFor="avatar_url">Photo de profil</label>
-            <input
-              id="avatar_url"
-              name="avatar_url"
-              type="url"
-              defaultValue={avatarUrl}
-              placeholder="https://… (lien vers une image)"
-              className="input"
-              onChange={(e) => setPreview((p) => ({ ...p, avatarUrl: e.target.value.trim() }))}
-            />
-          </div>
           <FormAlert state={state} />
           <SubmitButton pending={pending} pendingText="Enregistrement…"><Save size={16} /> Enregistrer</SubmitButton>
         </div>
@@ -54,7 +149,7 @@ export function AccountForm({ name, email, country, avatarUrl }: { name: string;
       <aside className="h-fit rounded-[1.75rem] bg-forest-800 p-6 text-center text-sand-50">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ochre-300">Aperçu</p>
         <div className="mt-5 flex justify-center">
-          <Avatar name={preview.name || "?"} src={validPhoto} size={96} className="ring-4 ring-white/15" />
+          <Avatar name={preview.name || "?"} src={preview.avatarUrl} size={96} className="ring-4 ring-white/15" />
         </div>
         <p className="mt-4 font-display text-xl font-semibold">{preview.name || "Votre nom"}</p>
         <p className="mt-1 text-sm text-sand-300">C&apos;est ainsi que les autres membres vous voient.</p>
