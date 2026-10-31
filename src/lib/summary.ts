@@ -1,6 +1,6 @@
 import "server-only";
 import type { ResponseInputContent } from "openai/resources/responses/responses";
-import { AI_MODEL, isAiAvailable, jsonFormat, openai } from "./ai";
+import { isAiAvailable, jsonFormat, modelOptions, openai } from "./ai";
 import { listLessonFiles, readLessonFile } from "./documents";
 import { getDb, type LessonDoc, type LessonSummary, toObjectId } from "./db";
 
@@ -150,11 +150,9 @@ export async function generateLessonSummary(lessonId: string): Promise<void> {
   try {
     const { content } = await buildPrompt(lesson);
     const response = await openai().responses.create({
-      model: AI_MODEL,
+      ...modelOptions("medium", 32000),
       instructions: SYSTEM,
       input: [{ role: "user", content }],
-      reasoning: { effort: "medium" },
-      max_output_tokens: 32000,
       text: jsonFormat("fiche_de_revision", SUMMARY_SCHEMA),
     });
     if (response.status !== "completed" || !response.output_text) {
