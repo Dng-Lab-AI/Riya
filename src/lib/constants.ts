@@ -155,3 +155,8 @@ export const BASE_SPEECH_LANGS = [
   { code: "fr-FR", label: "Français" },
   { code: "en-US", label: "Anglais" },
 ];
+
+// Anchor id for a region section on /langues, e.g. "Afrique de l'Ouest" -> "afrique-de-l-ouest".
+export function regionId(region: string) {
+  return region.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
