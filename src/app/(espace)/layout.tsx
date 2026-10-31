@@ -13,8 +13,8 @@ export default async function EspaceLayout({ children }: { children: React.React
   const unread = await getUnreadCount(user._id);
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[17rem_1fr] lg:gap-8 lg:px-8 lg:py-8">
-      <aside className="lg:sticky lg:top-20 lg:h-fit">
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:py-8">
+      <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
         <div className="mb-4 hidden items-center gap-3 rounded-[1.5rem] bg-sand-100 p-4 lg:flex">
           <Avatar name={user.name} src={user.avatar_url} size={48} />
           <div className="min-w-0">
