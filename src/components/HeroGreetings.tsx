@@ -18,7 +18,7 @@ export function HeroGreetings({ greetings }: { greetings: Greeting[] }) {
 
   return (
     <span className="relative inline-flex h-[1.2em] min-w-[6ch] items-baseline overflow-hidden align-bottom">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={current.text}
           initial={{ y: "100%", opacity: 0 }}

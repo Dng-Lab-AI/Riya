@@ -26,13 +26,13 @@ export async function Header() {
     : [];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-sand-200 bg-sand-50/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-8">
+    <header className="sticky top-0 z-40 px-3 pt-2 sm:px-4">
+      <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 rounded-full border border-earth-900/10 bg-white/85 pl-4 pr-2 shadow-[0_8px_30px_-12px_rgb(34_24_15/0.25)] backdrop-blur-md sm:pl-5">
+        <div className="flex items-center gap-6">
           <Link href="/" aria-label="Accueil Riya"><Logo /></Link>
           <nav className="hidden items-center gap-1 lg:flex">
             {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-full px-3 py-2 text-sm font-medium text-earth-700 hover:bg-sand-100 hover:text-earth-900">
+              <Link key={item.href} href={item.href} className="rounded-full px-3.5 py-2 text-sm font-medium text-earth-700 transition hover:bg-forest-800 hover:text-sand-50">
                 {item.label}
               </Link>
             ))}
@@ -69,7 +69,7 @@ export async function Header() {
           ) : (
             <>
               <Link href="/connexion" className="btn-ghost">Se connecter</Link>
-              <Link href="/inscription" className="btn-primary">Commencer</Link>
+              <Link href="/inscription" className="btn-dark">Commencer gratuitement</Link>
             </>
           )}
         </div>
@@ -82,7 +82,6 @@ export async function Header() {
           )}
         </MobileMenu>
       </div>
-      <div className="kente-strip" />
     </header>
   );
 }

@@ -14,7 +14,7 @@ export function MobileMenu({ links, signedIn, children }: { links: { href: strin
         {open ? <X size={24} /> : <Menu size={24} />}
       </button>
       {open && (
-        <div className="absolute inset-x-0 top-full border-b border-sand-200 bg-sand-50 px-4 pb-6 pt-2 shadow-lg">
+        <div className="absolute inset-x-0 top-full mt-2 rounded-3xl border border-earth-900/10 bg-white px-4 pb-5 pt-3 shadow-xl">
           <nav className="flex flex-col">
             {links.map((item) => (
               <Link key={item.href} href={item.href} onClick={close} className="rounded-lg px-3 py-2.5 font-medium text-earth-800 hover:bg-sand-100">
@@ -28,7 +28,7 @@ export function MobileMenu({ links, signedIn, children }: { links: { href: strin
             ) : (
               <div className="flex gap-2">
                 <Link href="/connexion" onClick={close} className="btn-outline flex-1">Se connecter</Link>
-                <Link href="/inscription" onClick={close} className="btn-primary flex-1">Commencer</Link>
+                <Link href="/inscription" onClick={close} className="btn-dark flex-1">Commencer</Link>
               </div>
             )}
           </div>
