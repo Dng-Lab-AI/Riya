@@ -4,17 +4,18 @@ import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, RotateCcw, Shuffle } from "lucide-react";
 
-// Small animation helpers. All of them respect the visitor's "reduce motion" setting.
+// Small animation helpers. All of them respect the visitor's "reduce motion" setting: the
+// first render is identical on the server and in the browser, and animations then take no time.
 
 export function Reveal({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   const reduce = useReducedMotion();
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, delay, ease: "easeOut" }}
+      transition={reduce ? { duration: 0 } : { duration: 0.55, delay, ease: "easeOut" }}
     >
       {children}
     </motion.div>
@@ -25,9 +26,9 @@ export function Reveal({ children, delay = 0, className }: { children: React.Rea
 export function Stagger({ children, className }: { children: React.ReactNode[]; className?: string }) {
   const reduce = useReducedMotion();
   return (
-    <motion.div className={className} initial={reduce ? false : "hidden"} whileInView="show" viewport={{ once: true, margin: "-60px" }} variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
+    <motion.div className={className} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} variants={{ show: { transition: { staggerChildren: reduce ? 0 : 0.07 } } }}>
       {children.map((child, i) => (
-        <motion.div key={i} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.45 } } }}>
+        <motion.div key={i} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: reduce ? 0 : 0.45 } } }}>
           {child}
         </motion.div>
       ))}
