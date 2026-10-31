@@ -3,7 +3,7 @@ import type { MethodId } from "./countries";
 
 // Payment providers. Flutterwave (licensed by the BEAC in Cameroon) covers MTN and
 // Orange Money in FCFA, mobile money elsewhere in Africa and cards worldwide.
-// Without a key, development uses a built-in demo checkout so the whole flow can be tried.
+// Without a key, a built-in demo checkout (a fake, always-successful payment) carries the whole flow.
 
 export type ProviderName = "flutterwave" | "demo";
 
@@ -19,9 +19,13 @@ export type CheckoutInput = {
 
 export type Verification = { status: "paid" | "failed" | "pending"; amount: number; currency: string; providerTxId?: string; method?: string };
 
+// Real payments as soon as a Flutterwave key is set; until then the demo checkout
+// (a fake payment that always succeeds) carries the whole booking flow, in production too.
+// Set DEMO_PAYMENTS=off to turn it off in production and require a real key instead.
 export function activeProvider(): ProviderName | null {
   if (process.env.FLUTTERWAVE_SECRET_KEY) return "flutterwave";
-  return process.env.NODE_ENV === "production" ? null : "demo";
+  if (process.env.NODE_ENV === "production" && process.env.DEMO_PAYMENTS === "off") return null;
+  return "demo";
 }
 
 // ── Flutterwave (API v3) ──────────────────────────────────
