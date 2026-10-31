@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Avatar, EmptyState, PageHeader } from "@/components/ui";
+import { Avatar, EmptyState, EspaceHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/constants";
 import { getConversations } from "@/lib/queries";
@@ -13,8 +13,8 @@ export default async function MessagesPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Messagerie" title="Mes conversations" />
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <EspaceHeader title="Messages">Vos conversations avec les tuteurs et les élèves.</EspaceHeader>
+      <div className="max-w-3xl">
         {conversations.length ? (
           <ul className="card divide-y divide-sand-200 overflow-hidden">
             {conversations.map((c) => (

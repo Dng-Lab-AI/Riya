@@ -35,7 +35,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   await createSession(_id);
-  redirect(role === "tutor" ? "/profil?bienvenue=1" : safeRedirectPath(formData.get("suite"), "/tuteurs"));
+  redirect(role === "tutor" ? "/profil/tuteur?bienvenue=1" : safeRedirectPath(formData.get("suite"), "/tuteurs"));
 }
 
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {

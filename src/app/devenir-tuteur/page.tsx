@@ -25,7 +25,7 @@ const STEPS = [
 export default async function BecomeTutorPage() {
   const user = await getCurrentUser();
   const languages = await listLanguages();
-  const cta = user?.role === "tutor" ? { href: "/profil", label: "Compléter mon profil" } : { href: "/inscription?role=tuteur", label: "Créer mon compte tuteur" };
+  const cta = user?.role === "tutor" ? { href: "/profil/tuteur", label: "Compléter mon profil" } : { href: "/inscription?role=tuteur", label: "Créer mon compte tuteur" };
   // Signed-in students switch their own account to a tutor account.
   const callToAction = (className: string) =>
     user?.role === "student" ? (

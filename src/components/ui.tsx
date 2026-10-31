@@ -70,6 +70,30 @@ export function PageHeader({ eyebrow, title, photo, children }: { eyebrow?: stri
   );
 }
 
+// Title of a page inside the personal space (the sidebar already gives the context).
+export function EspaceHeader({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 className="font-display text-3xl font-semibold leading-tight text-earth-900 sm:text-4xl">{title}</h1>
+        {children && <div className="mt-1.5 max-w-2xl text-earth-600">{children}</div>}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// A titled block of a settings page.
+export function Panel({ title, description, children, className = "" }: { title: string; description?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-[1.75rem] border border-sand-200 bg-white p-6 sm:p-7 ${className}`}>
+      <h2 className="font-display text-xl font-semibold">{title}</h2>
+      {description && <p className="mt-1 text-sm text-earth-600">{description}</p>}
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
+
 export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="card pattern-bogolan px-6 py-12 text-center">
