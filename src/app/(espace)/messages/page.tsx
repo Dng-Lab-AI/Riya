@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EnableNotifications } from "@/components/EnableNotifications";
 import { Avatar, EmptyState, EspaceHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/constants";
@@ -15,6 +16,7 @@ export default async function MessagesPage() {
     <>
       <EspaceHeader title="Messages">Vos conversations avec les tuteurs et les élèves.</EspaceHeader>
       <div className="max-w-3xl">
+        {conversations.length > 0 && <EnableNotifications />}
         {conversations.length ? (
           <ul className="card divide-y divide-sand-200 overflow-hidden">
             {conversations.map((c) => (

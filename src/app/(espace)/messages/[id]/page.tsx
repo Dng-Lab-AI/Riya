@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { LocalDateTime } from "@/components/client";
-import { MessageForm } from "@/components/CommunityForms";
+import { LiveThread } from "@/components/LiveThread";
 import { Avatar } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { toIso } from "@/lib/constants";
 import { toObjectId } from "@/lib/db";
 import { getThread, getUserProfile, markThreadRead } from "@/lib/queries";
 
@@ -37,24 +35,7 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
         </div>
       </div>
 
-      <div className="pattern-bogolan my-4 flex min-h-[40vh] flex-col gap-3 rounded-2xl border border-sand-200 p-4">
-        {messages.length === 0 && <p className="m-auto text-sm text-earth-500">Envoyez votre premier message à {other.name.split(" ")[0]}.</p>}
-        {messages.map((m) => {
-          const mine = m.sender_id === user.id;
-          return (
-            <div key={m.id} className={`max-w-[80%] ${mine ? "self-end" : "self-start"}`}>
-              <div className={`whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm ${mine ? "rounded-br-sm bg-clay-600 text-white" : "rounded-bl-sm bg-white text-earth-900 shadow-sm"}`}>
-                {m.body}
-              </div>
-              <p className={`mt-1 text-[11px] text-earth-500 ${mine ? "text-right" : ""}`}>
-                <LocalDateTime iso={toIso(m.created_at)} />
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      <MessageForm recipientId={other.id} />
+      <LiveThread otherId={other.id} otherFirstName={other.name.split(" ")[0]} me={user.id} initial={messages} />
     </div>
   );
 }
