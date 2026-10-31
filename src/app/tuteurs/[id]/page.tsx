@@ -138,7 +138,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
               {isSelf ? (
                 <div className="space-y-3 text-sm text-earth-600">
                   <p>Voici votre profil public, tel que les élèves le voient.</p>
-                  <Link href="/profil" className="btn-outline w-full">Modifier mon profil</Link>
+                  <Link href="/profil/tuteur" className="btn-outline w-full">Modifier mon profil</Link>
                 </div>
               ) : !tutor.approved ? (
                 <p className="text-sm text-earth-600">Les réservations ouvriront après validation du profil.</p>

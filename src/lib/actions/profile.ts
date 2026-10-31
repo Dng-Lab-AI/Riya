@@ -93,5 +93,5 @@ export async function becomeTutor() {
     await db.users.updateOne({ _id: user._id }, { $set: { role: "tutor" } });
     refreshAll();
   }
-  redirect("/profil?bienvenue=1");
+  redirect("/profil/tuteur?bienvenue=1");
 }
