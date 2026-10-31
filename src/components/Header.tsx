@@ -19,6 +19,7 @@ export async function Header() {
   const accountLinks = user
     ? [
         { href: "/tableau-de-bord", label: "Mes cours" },
+        { href: "/progression", label: user.role === "tutor" ? "Mon évolution" : "Ma progression" },
         { href: "/messages", label: unread ? `Messages (${unread})` : "Messages" },
         { href: "/profil", label: "Mon profil" },
         ...(user.role === "admin" ? [{ href: "/admin", label: "Administration" }] : []),

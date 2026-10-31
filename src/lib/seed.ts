@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import type { Collections, LessonDoc, ReviewDoc, TutorProfile } from "./db";
+import type { Collections, FeedbackDoc, LessonDoc, ReviewDoc, TutorProfile } from "./db";
 import { hashPassword } from "./password";
 
 // Demo content inserted the first time the database is created.
@@ -204,6 +204,52 @@ const REVIEW_COMMENTS = [
   "Excellent tuteur, des supports de qualité et beaucoup de bienveillance.",
 ];
 
+// A few words per language, so finished demo lessons carry vocabulary, a quiz and
+// grammar points, and the progress dashboards have something to show.
+const DEMO_WORDS: Record<string, [string, string][]> = {
+  swahili: [["asante", "merci"], ["rafiki", "ami"], ["maji", "eau"], ["nyumba", "maison"]],
+  wolof: [["jërëjëf", "merci"], ["waaw", "oui"], ["ndox", "eau"], ["kër", "maison"]],
+  yoruba: [["ẹ ṣé", "merci"], ["omi", "eau"], ["ilé", "maison"], ["ọ̀rẹ́", "ami"]],
+  lingala: [["matondo", "merci"], ["mai", "eau"], ["ndako", "maison"], ["moninga", "ami"]],
+  hausa: [["na gode", "merci"], ["ruwa", "eau"], ["gida", "maison"], ["aboki", "ami"]],
+  igbo: [["daalụ", "merci"], ["mmiri", "eau"], ["ụlọ", "maison"], ["enyi", "ami"]],
+  amharique: [["ameseginalehu", "merci"], ["wuha", "eau"], ["bet", "maison"], ["guadegna", "ami"]],
+  zoulou: [["ngiyabonga", "merci"], ["amanzi", "eau"], ["indlu", "maison"], ["umngane", "ami"]],
+  twi: [["medaase", "merci"], ["nsuo", "eau"], ["efie", "maison"], ["adamfo", "ami"]],
+  bambara: [["i ni ce", "merci"], ["ji", "eau"], ["so", "maison"], ["teri", "ami"]],
+  kinyarwanda: [["murakoze", "merci"], ["amazi", "eau"], ["inzu", "maison"], ["inshuti", "ami"]],
+  somali: [["mahadsanid", "merci"], ["biyo", "eau"], ["guri", "maison"], ["saaxiib", "ami"]],
+};
+const DEMO_GRAMMAR = [["Les salutations selon le moment de la journée"], ["Les pronoms personnels", "Le présent des verbes courants"], ["Poser une question simple"]];
+
+function demoLessonContent(lesson: LessonDoc, k: number): Pick<LessonDoc, "summary" | "quizzes"> {
+  const words = DEMO_WORDS[lesson.languageSlug] ?? [];
+  if (!words.length) return {};
+  const picked = words.slice(k % 2, (k % 2) + 3);
+  const [term, translation] = picked[0];
+  const options = ["merci", "eau", "maison", "ami"];
+  return {
+    summary: {
+      overview: "Cours de démonstration : salutations et vocabulaire du quotidien.",
+      keyPoints: ["Saluer et remercier", "Mots de tous les jours"],
+      vocabulary: picked.map(([t, tr]) => ({ term: t, translation: tr, example: "" })),
+      grammar: DEMO_GRAMMAR[k % DEMO_GRAMMAR.length],
+      practice: [],
+      homework: "Revoir les mots du jour avec les cartes mémoire.",
+      generatedAt: lesson.startsAt,
+      model: "demo",
+    },
+    quizzes: [{
+      question: `Que veut dire « ${term} » ?`,
+      options,
+      correctIndex: options.indexOf(translation),
+      // One demo answer in three is wrong, so the success rate is realistic.
+      answerIndex: k % 3 === 2 ? (options.indexOf(translation) + 1) % options.length : options.indexOf(translation),
+      explanation: `« ${term} » signifie « ${translation} ».`,
+    }],
+  };
+}
+
 function inDays(days: number, hour: number) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
@@ -242,6 +288,7 @@ export async function seed(c: Collections) {
   // Past lessons with reviews, so tutors have ratings out of the box.
   const lessons: LessonDoc[] = [];
   const reviews: ReviewDoc[] = [];
+  const feedback: FeedbackDoc[] = [];
   approved.forEach((tutor, i) => {
     const reviewCount = 2 + (i % 3);
     for (let k = 0; k < reviewCount; k++) {
@@ -251,9 +298,16 @@ export async function seed(c: Collections) {
         _id: new ObjectId(), studentId: student._id, tutorId: tutor._id, languageSlug: tutor.tutor.languages[0].slug, startsAt,
         durationMinutes: 50, price: tutor.tutor.hourlyRate, status: "completed", message: "", createdAt: startsAt,
       };
+      Object.assign(lesson, demoLessonContent(lesson, k));
       const rating = (i + k) % 4 === 3 ? 4 : 5;
       lessons.push(lesson);
       reviews.push({ _id: new ObjectId(), lessonId: lesson._id, studentId: student._id, tutorId: tutor._id, rating, comment: REVIEW_COMMENTS[(i + k) % REVIEW_COMMENTS.length], createdAt: startsAt });
+      feedback.push({
+        _id: new ObjectId(), lessonId: lesson._id, studentId: student._id, tutorId: tutor._id, rating,
+        criteria: { clarity: rating, interaction: k % 2 ? 4 : 5, content: 5, pace: rating === 5 ? 4 : 3 },
+        liked: k === 0 ? "Les exemples tirés de la vie quotidienne." : "", improve: k === 1 ? "Un peu plus de temps pour parler." : "",
+        createdAt: startsAt, updatedAt: startsAt,
+      });
       tutor.tutor.ratingSum += rating;
       tutor.tutor.ratingCount += 1;
       tutor.tutor.lessonCount += 1;
@@ -276,6 +330,7 @@ export async function seed(c: Collections) {
   await c.users.insertMany([admin, ...tutors, ...students]);
   await c.lessons.insertMany(lessons);
   await c.reviews.insertMany(reviews);
+  await c.feedback.insertMany(feedback);
 
   await c.messages.insertMany([
     { _id: new ObjectId(), senderId: camille._id, recipientId: approved[0]._id, body: "Bonjour Amani, est-ce qu'on pourra voir les nombres pendant le prochain cours ?", readAt: now, createdAt: new Date(now.getTime() - 3600_000) },
