@@ -43,7 +43,7 @@ En développement, la salle est toujours ouverte pour les cours confirmés. En p
 - **Catalogue de langues** (`/langues`) et fiches détaillées par langue.
 - **Recherche de tuteurs** (`/tuteurs`) avec filtres (langue, prix, pays, disponibilité, spécialité) et tri.
 - **Profil tuteur** : présentation, avis, favoris, message, réservation d'un créneau dans le fuseau horaire de l'élève.
-- **Comptes** élève et tuteur, sessions sécurisées (cookie httpOnly, mots de passe hachés avec scrypt).
+- **Comptes** élève et tuteur, sessions sécurisées (cookie httpOnly, mots de passe hachés avec scrypt). Mot de passe saisi deux fois, bouton afficher / masquer, **adresse e-mail à confirmer** avant la première connexion (lien valable 48 h), **mot de passe oublié** (lien valable 1 h, à usage unique, qui déconnecte les autres appareils) et **connexion ou inscription avec Google**. Les liens envoyés par e-mail ne sont stockés que sous forme hachée.
 - **Tableau de bord** : demandes à accepter ou refuser, planning, annulation, clôture des cours, avis, revenus.
 - **Salle de classe intégrée** (`/classe/[id]`) : visio face à face en WebRTC (pair à pair), micro et caméra activables, partage d'écran, discussion écrite pendant le cours, minuteur, reconnexion automatique, salle d'attente avec aperçu de la caméra.
 - **Documents partagés en classe** : le tuteur dépose des PDF, images, audios, Word, PowerPoint, Excel ou textes (15 Mo maximum), stockés dans MongoDB (GridFS). L'élève les voit immédiatement, le tuteur peut en **présenter** un en grand aux deux participants, et chacun peut les télécharger. Seuls l'élève et le tuteur du cours y ont accès.
@@ -86,5 +86,6 @@ Sur certains réseaux très fermés (réseaux d'entreprise, certains opérateurs
 - **HTTPS obligatoire** : les navigateurs n'autorisent la caméra que sur une page sécurisée.
 - **TURN** pour fiabiliser la visio (voir ci-dessus).
 - **Paiement** : créer un compte Flutterwave (entreprise camerounaise), renseigner `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_WEBHOOK_HASH` et `SITE_URL`, puis tester avec les clés de test avant les clés réelles. Les versements aux tuteurs (part après commission `RIYA_COMMISSION`) se font encore à la main.
-- **E-mails** : confirmation d'inscription, mot de passe oublié, notifications.
+- **E-mails** : renseigner un serveur SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`) pour envoyer la confirmation d'adresse et le mot de passe oublié ; sans SMTP en production, l'inscription échoue. Restent à faire : les notifications (réservation, rappel de cours).
+- **Google** : créer un identifiant OAuth (application Web) et renseigner `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`, avec l'URI de redirection `https://votre-site/api/auth/google/callback`.
 - **Hébergement** : la signalisation fonctionne par requêtes régulières. Elle convient à un hébergement classique comme serverless, avec une base MongoDB Atlas.

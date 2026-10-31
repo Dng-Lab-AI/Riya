@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Circle, Eye, EyeOff, Save } from "lucide-react";
+import { Check, Circle, Save } from "lucide-react";
 import { changePassword, updateAccount, updateTutorProfile } from "@/lib/actions/profile";
 import { AVAILABILITY, SPECIALTIES } from "@/lib/constants";
 import { formatMoney, quoteFor } from "@/lib/payments/countries";
+import { NewPasswordFields, PasswordInput } from "./AuthForms";
 import { SubmitButton, useKeepValuesForm } from "./client";
 import { CountrySelect } from "./CountrySelect";
 import { Avatar, FormAlert, Panel } from "./ui";
@@ -62,28 +63,21 @@ export function AccountForm({ name, email, country, avatarUrl }: { name: string;
   );
 }
 
-export function PasswordForm() {
+export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
   const { state, pending, onSubmit } = useKeepValuesForm(changePassword);
-  const [visible, setVisible] = useState(false);
-  const type = visible ? "text" : "password";
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      {hasPassword ? (
+        <div className="max-w-sm">
           <label className="label" htmlFor="current">Mot de passe actuel</label>
-          <input id="current" name="current" type={type} autoComplete="current-password" required className="input" />
+          <PasswordInput id="current" name="current" autoComplete="current-password" />
         </div>
-        <div>
-          <label className="label" htmlFor="next">Nouveau mot de passe</label>
-          <input id="next" name="next" type={type} autoComplete="new-password" minLength={8} required className="input" />
-          <p className="mt-1 text-xs text-earth-500">8 caractères minimum.</p>
-        </div>
-      </div>
-      <button type="button" onClick={() => setVisible((v) => !v)} className="flex items-center gap-2 text-sm text-earth-600 hover:text-earth-900">
-        {visible ? <EyeOff size={16} /> : <Eye size={16} />} {visible ? "Masquer" : "Afficher"} les mots de passe
-      </button>
+      ) : (
+        <p className="rounded-2xl bg-sand-50 p-3 text-sm text-earth-600">Vous vous connectez avec Google. Vous pouvez aussi définir un mot de passe pour vous connecter avec votre e-mail.</p>
+      )}
+      <NewPasswordFields label="Nouveau mot de passe" />
       <FormAlert state={state} />
-      <SubmitButton pending={pending} pendingText="Modification…">Changer le mot de passe</SubmitButton>
+      <SubmitButton pending={pending} pendingText="Modification…">{hasPassword ? "Changer le mot de passe" : "Définir un mot de passe"}</SubmitButton>
     </form>
   );
 }

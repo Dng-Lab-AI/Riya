@@ -1,8 +1,8 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { headers } from "next/headers";
 import type { Filter } from "mongodb";
 import { getDb, type LessonDoc, type LessonPayment, type UserDoc } from "../db";
+import { siteOrigin } from "../site";
 import { quoteFor, type Quote } from "./countries";
 import { activeProvider, providers } from "./provider";
 
@@ -51,11 +51,6 @@ export function isSettled(lesson: Pick<LessonDoc, "payment">) {
   return !lesson.payment || lesson.payment.status === "paid";
 }
 
-async function siteOrigin() {
-  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
-  const h = await headers();
-  return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
-}
 
 // Opens a new payment attempt for the lesson and returns the checkout page to send the student to.
 export async function startCheckout(lesson: LessonDoc, student: Pick<UserDoc, "email" | "name">, quote: Quote, description: string): Promise<string> {

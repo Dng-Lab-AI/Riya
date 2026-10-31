@@ -151,6 +151,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
   const sp = await searchParams;
   const justBooked = first(sp.reserve) === "1";
   const slotLost = first(sp.creneau) === "perdu";
+  const notice = first(sp.verifie) === "1" ? "Adresse e-mail confirmée : votre compte est actif." : first(sp.motdepasse) === "1" ? "Mot de passe modifié. Vos autres appareils ont été déconnectés." : null;
+  const noticeBanner = notice && <p className="rounded-2xl bg-forest-100 p-5 font-medium text-forest-800">{notice}</p>;
 
   if (user.role === "tutor") {
     const [lessons, profile, feedback] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getTutorFeedbackOverview(user._id)]);
@@ -165,6 +167,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
       <>
         <EspaceHeader title={`Karibu, ${user.name.split(" ")[0]} !`}>Gérez vos demandes de cours et votre planning.</EspaceHeader>
         <div className="space-y-10">
+          {noticeBanner}
           {profile && (!profile.approved || !profile.headline) && (
             <div className="rounded-2xl bg-ochre-100 p-5 text-ochre-800">
               <p className="font-semibold">{profile.headline ? "Votre profil est en cours de validation." : "Complétez votre profil pour apparaître dans les recherches."}</p>
@@ -195,6 +198,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
     <>
       <EspaceHeader title={`Habari, ${user.name.split(" ")[0]} !`}>Retrouvez vos cours, laissez des avis et suivez vos tuteurs favoris.</EspaceHeader>
       <div className="space-y-10">
+          {noticeBanner}
         {justBooked && (
           <p className="rounded-2xl bg-forest-100 p-5 font-medium text-forest-800">
             Demande envoyée ! Le tuteur va la confirmer, puis le lien de visio apparaîtra ici.
