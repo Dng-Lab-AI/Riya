@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { useDismiss } from "./AccountMenu";
 
 export function MobileMenu({ links, signedIn, children }: { links: { href: string; label: string }[]; signedIn: boolean; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
+  const close = useCallback(() => setOpen(false), []);
+  const ref = useDismiss<HTMLDivElement>(open, close);
 
   return (
-    <div className="lg:hidden">
+    <div ref={ref} className="lg:hidden">
       <button onClick={() => setOpen((o) => !o)} className="btn-ghost" aria-expanded={open} aria-label="Menu">
         {open ? <X size={24} /> : <Menu size={24} />}
       </button>

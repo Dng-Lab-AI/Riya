@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronDown, LogOut, MessageCircle } from "lucide-react";
+import { LogOut, MessageCircle } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/queries";
 import { logout } from "@/lib/actions/auth";
-import { Avatar, Logo } from "./ui";
+import { Logo } from "./ui";
+import { AccountMenu } from "./AccountMenu";
 import { MobileMenu } from "./MobileMenu";
 
 const NAV = [
@@ -49,23 +50,7 @@ export async function Header() {
                   <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay-600 px-1 text-[10px] font-bold text-white">{unread}</span>
                 )}
               </Link>
-              <details className="group relative">
-                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-sand-100">
-                  <Avatar name={user.name} src={user.avatar_url} size={34} />
-                  <span className="text-sm font-semibold">{user.name.split(" ")[0]}</span>
-                  <ChevronDown size={16} className="transition group-open:rotate-180" />
-                </summary>
-                <div className="card absolute right-0 mt-2 w-56 overflow-hidden p-1.5 shadow-lg">
-                  {accountLinks.map((item) => (
-                    <Link key={item.href} href={item.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-sand-100">{item.label}</Link>
-                  ))}
-                  <form action={logout} className="border-t border-sand-200 pt-1.5 mt-1.5">
-                    <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-clay-700 hover:bg-clay-50">
-                      <LogOut size={16} /> Se déconnecter
-                    </button>
-                  </form>
-                </div>
-              </details>
+              <AccountMenu name={user.name} avatarUrl={user.avatar_url} links={accountLinks} />
             </>
           ) : (
             <>
