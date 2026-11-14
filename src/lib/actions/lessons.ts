@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireUser } from "../auth";
 import { getDb, ObjectId, toObjectId, type LessonDoc } from "../db";
+import { notifyInterest, recordBookingSubmitted } from "../notifications";
 import { isKnownCountry } from "../payments/countries";
 import { FREE_CANCELLATION_HOURS, holdsSlot, isPaymentAvailable, isSettled, quoteLesson, refundLesson, startCheckout } from "../payments";
 import { generateLessonSummary, isSummaryAvailable } from "../summary";
@@ -37,6 +38,8 @@ export async function bookLesson(tutorId: string, _prev: FormState, formData: Fo
     price: tutor.tutor.hourlyRate, status: "pending", message, createdAt: new Date(),
   };
   await db.lessons.insertOne(lesson);
+  // The booking reached the payment step: no "unfinished booking" reminder for the time slot picked.
+  await recordBookingSubmitted(user._id, tutorOid);
   // Remember the country so the next booking offers the same payment methods.
   if (country !== user.country) await db.users.updateOne({ _id: user._id }, { $set: { country } });
 
@@ -143,6 +146,8 @@ export async function toggleFavorite(tutorId: string) {
   const removed = await db.users.updateOne({ _id: user._id, favorites: _id }, { $pull: { favorites: _id } });
   if (!removed.modifiedCount && (await db.users.countDocuments({ _id, role: "tutor" }))) {
     await db.users.updateOne({ _id: user._id }, { $addToSet: { favorites: _id } });
+    // Liking a profile tells the tutor this student is interested (at most once a month).
+    if (user.role === "student") await notifyInterest(user, _id);
   }
   refreshAll();
 }

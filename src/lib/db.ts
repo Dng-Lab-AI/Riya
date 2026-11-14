@@ -95,6 +95,8 @@ export type LessonDoc = {
   assistant?: { enabled: boolean; consent: Record<string, boolean> };
   // Absent on lessons booked before online payment existed (treated as settled).
   payment?: LessonPayment;
+  // When the tutor was told that the student left this booking unpaid.
+  abandonNotifiedAt?: Date;
   createdAt: Date;
 };
 
@@ -171,7 +173,31 @@ export type LessonFileMeta = { lessonId: ObjectId; uploaderId: ObjectId; content
 export type AvatarDoc = { _id: ObjectId; data: Binary; contentType: string; updatedAt: Date };
 
 export type ReviewDoc = { _id: ObjectId; lessonId: ObjectId; studentId: ObjectId; tutorId: ObjectId; rating: number; comment: string; createdAt: Date };
-export type MessageDoc = { _id: ObjectId; senderId: ObjectId; recipientId: ObjectId; body: string; readAt: Date | null; createdAt: Date };
+export type MessageDoc = {
+  _id: ObjectId;
+  senderId: ObjectId;
+  recipientId: ObjectId;
+  body: string;
+  readAt: Date | null;
+  createdAt: Date;
+  // Set on automatic notifications about the sender, shown only to the recipient (the tutor):
+  // the student showed interest in the profile, or started a booking without finishing it.
+  kind?: NotificationKind;
+};
+export type NotificationKind = "interest" | "booking_abandoned";
+
+// A student started booking a tutor (picked a time slot). Used to remind the tutor
+// when the booking is not finished.
+export type BookingIntentDoc = {
+  _id: ObjectId;
+  studentId: ObjectId;
+  tutorId: ObjectId;
+  startedAt: Date;
+  lastActivityAt: Date;
+  // The student went on to the payment page.
+  completedAt: Date | null;
+  notifiedAt: Date | null;
+};
 export type TopicDoc = { _id: ObjectId; authorId: ObjectId; category: string; languageSlug: string | null; title: string; body: string; views: number; createdAt: Date };
 export type ReplyDoc = { _id: ObjectId; topicId: ObjectId; authorId: ObjectId; body: string; createdAt: Date };
 
@@ -195,6 +221,7 @@ export type Collections = {
   events: Collection<ClassEventDoc>;
   transcript: Collection<TranscriptDoc>;
   avatars: Collection<AvatarDoc>;
+  bookingIntents: Collection<BookingIntentDoc>;
   files: GridFSBucket;
   meta: Collection<{ _id: string; at: Date }>;
 };
@@ -218,6 +245,7 @@ function collectionsOf(db: Db): Collections {
     events: db.collection("classroom_events"),
     transcript: db.collection("classroom_transcript"),
     avatars: db.collection("avatars"),
+    bookingIntents: db.collection("booking_intents"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     meta: db.collection("meta"),
   };
@@ -262,6 +290,11 @@ async function init(): Promise<Collections> {
     c.events.createIndex({ lessonId: 1, _id: 1 }),
     c.transcript.createIndex({ lessonId: 1, _id: 1 }),
     c.feedback.createIndex({ tutorId: 1, createdAt: -1 }),
+    c.messages.createIndex({ kind: 1, senderId: 1, recipientId: 1, createdAt: -1 }, { partialFilterExpression: { kind: { $exists: true } } }),
+    c.bookingIntents.createIndex({ studentId: 1, tutorId: 1, completedAt: 1, notifiedAt: 1 }),
+    c.bookingIntents.createIndex({ completedAt: 1, notifiedAt: 1, lastActivityAt: 1 }),
+    // Old intents are only history: drop them after 60 days.
+    c.bookingIntents.createIndex({ startedAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 }),
     client.db().collection("lesson_files.files").createIndex({ "metadata.lessonId": 1, uploadDate: 1 }),
   ]);
 

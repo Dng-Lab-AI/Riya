@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { bookLesson } from "@/lib/actions/lessons";
+import { bookingStarted } from "@/lib/actions/notifications";
 import { TIME_SLOTS } from "@/lib/constants";
 import { METHODS, countryGroups, formatMoney, quoteFor } from "@/lib/payments/countries";
 import { SubmitButton, useKeepValuesForm } from "./client";
@@ -45,6 +46,15 @@ function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCoun
   const [now] = useState(() => Date.now());
   const [day, setDay] = useState(days[1].key);
   const [startsAt, setStartsAt] = useState("");
+  // Picking a slot starts a booking: if it is not finished, the tutor gets a reminder to reach out.
+  const reported = useRef(false);
+  const pick = (iso: string) => {
+    setStartsAt(iso);
+    if (!reported.current) {
+      reported.current = true;
+      bookingStarted(tutorId).catch(() => {});
+    }
+  };
   const [country, setCountry] = useState(defaultCountry);
   const quote = quoteFor(country, priceEur, rates);
   const total = formatMoney(quote.amount, quote.currency);
@@ -98,7 +108,7 @@ function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCoun
               key={s.time}
               type="button"
               disabled={s.taken}
-              onClick={() => setStartsAt(s.iso)}
+              onClick={() => pick(s.iso)}
               className={`rounded-lg border py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:border-sand-200 disabled:bg-sand-100 disabled:text-earth-400 disabled:line-through ${
                 startsAt === s.iso ? "border-forest-600 bg-forest-600 text-white" : "border-sand-300 bg-white hover:border-forest-500"
               }`}
