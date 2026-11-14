@@ -10,7 +10,7 @@ export default async function MessagesLayout({ children }: { children: React.Rea
   // Each page sends signed-out visitors to the login page with the right return path.
   if (!user) return children;
   // Deliver any pending "booking left halfway" notification before listing.
-  await sendBookingReminders().catch((err) => console.error("Rappels de réservation", err));
+  await sendBookingReminders().catch((err) => console.error("Booking reminders", err));
   const [inbox, contacts] = await Promise.all([getInbox(user._id), getMessageContacts(user._id, user.role)]);
   return <MessagesShell list={<ConversationList initial={inbox} contacts={contacts} />}>{children}</MessagesShell>;
 }

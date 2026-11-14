@@ -2,6 +2,8 @@
 // country they live in. Prices are stored in euros (the tutors' currency); the
 // student is charged in their own currency when we can convert it safely.
 
+import { intlLocale, type Locale } from "@/i18n";
+
 export type MethodId = "mtn" | "orange" | "moov" | "mpesa" | "airtel" | "momo" | "bank" | "ussd" | "card" | "wallet";
 
 export const METHODS: Record<MethodId, { label: string; hint: string }> = {
@@ -77,9 +79,10 @@ export function quoteFor(countryName: string, priceEur: number, rates: Record<st
   return { country: country.name, currency: country.currency, amount, methods: country.methods };
 }
 
-export function formatMoney(amount: number, currency: string) {
+// "€15" / "15 €", "FCFA 6,560" / "6 560 FCFA".
+export function formatMoney(amount: number, currency: string, locale: Locale = "en") {
   const whole = Number.isInteger(amount);
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }).format(amount);
+  return new Intl.NumberFormat(intlLocale(locale), { style: "currency", currency, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }).format(amount);
 }
 
 export function countryGroups() {

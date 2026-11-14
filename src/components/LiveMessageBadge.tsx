@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
+
+const M = defineMessages({
+  en: { notification: "You've received a new message.", unread: (n: number) => `Messages, ${n} unread`, title: "New message", open: "Click to open it" },
+  fr: { notification: "Vous avez reçu un nouveau message.", unread: (n: number) => `Messages, ${n} non lus`, title: "Nouveau message", open: "Cliquez pour l'ouvrir" },
+});
 
 const POLL_MS = 3000;
 
@@ -14,6 +21,7 @@ export function LiveMessageBadge({ initialUnread }: { initialUnread: number }) {
   const [toast, setToast] = useState(false);
   const previous = useRef(initialUnread);
   const pathname = usePathname();
+  const t = M[useLocale()];
 
   useEffect(() => {
     let alive = true;
@@ -27,7 +35,7 @@ export function LiveMessageBadge({ initialUnread }: { initialUnread: number }) {
       toastTimer.id = setTimeout(() => alive && setToast(false), 6000);
       if (document.visibilityState === "hidden" && typeof Notification !== "undefined" && Notification.permission === "granted") {
         try {
-          new Notification("Riya", { body: "Vous avez reçu un nouveau message.", tag: "riya-message" });
+          new Notification("Riya", { body: t.notification, tag: "riya-message" });
         } catch {
           // Some browsers only allow notifications from a service worker; ignore.
         }
@@ -60,14 +68,14 @@ export function LiveMessageBadge({ initialUnread }: { initialUnread: number }) {
       window.removeEventListener("focus", onActive);
       document.removeEventListener("visibilitychange", onActive);
     };
-  }, [pathname]);
+  }, [pathname, t]);
 
   // Never cover the messages area with the toast.
   const showToast = toast && !pathname.startsWith("/messages");
 
   return (
     <>
-      <Link href="/messages" className="btn-ghost relative" aria-label={unread ? `Messages, ${unread} non lus` : "Messages"}>
+      <Link href="/messages" className="btn-ghost relative" aria-label={unread ? t.unread(unread) : "Messages"}>
         <MessageCircle size={20} />
         {unread > 0 && (
           <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay-600 px-1 text-[10px] font-bold text-white">{unread}</span>
@@ -81,8 +89,8 @@ export function LiveMessageBadge({ initialUnread }: { initialUnread: number }) {
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-clay-600 text-white"><MessageCircle size={18} /></span>
           <span className="text-sm">
-            <span className="block font-semibold text-earth-900">Nouveau message</span>
-            <span className="block text-earth-500">Cliquez pour l&apos;ouvrir</span>
+            <span className="block font-semibold text-earth-900">{t.title}</span>
+            <span className="block text-earth-500">{t.open}</span>
           </span>
         </Link>
       )}

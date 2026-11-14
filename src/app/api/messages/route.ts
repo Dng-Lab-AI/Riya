@@ -10,10 +10,10 @@ import { getThread, getUnreadCount, markThreadRead } from "@/lib/queries";
 // returns the messages received after "apres", and marks that conversation read when "lu=1".
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return Response.json({ error: "Non connecté" }, { status: 401 });
+  if (!user) return Response.json({ error: "Not logged in" }, { status: 401 });
 
   // Tells tutors about bookings left halfway (throttled to once a minute per server).
-  await sendBookingReminders().catch((err) => console.error("Rappels de réservation", err));
+  await sendBookingReminders().catch((err) => console.error("Booking reminders", err));
 
   const other = toObjectId(request.nextUrl.searchParams.get("avec"));
   let messages;

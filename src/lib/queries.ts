@@ -1,6 +1,11 @@
 import "server-only";
 import type { Filter } from "mongodb";
+import { intlLocale, type Locale } from "@/i18n";
+import { LANGUAGE_EN, languageName, regionLabel } from "@/i18n/catalog";
+import { getLocale } from "@/i18n/server";
 import { DEMO_STUDENT_NAME } from "./constants";
+
+const FORMER_MEMBER: Record<Locale, string> = { en: "Former member", fr: "Ancien membre" };
 import { getDb, REAL_LESSON, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type NotificationKind, type ObjectId, type UserDoc } from "./db";
 import { bookableSlots } from "./availability";
 import { formatMoney } from "./payments/countries";
@@ -16,7 +21,9 @@ export type Language = {
   native_name: string;
   greeting: string;
   greeting_meaning: string;
+  // Region as stored (French, used for grouping and anchors) and its label in the interface language.
   region: string;
+  region_label: string;
   countries: string;
   speakers: string;
   family: string;
@@ -74,10 +81,12 @@ const ACTIVE_TUTOR = { role: "tutor", status: "active", "tutor.approved": true }
 
 // ── Languages ─────────────────────────────────────────────
 
+// Language names in the visitor's interface language (the database keeps the French names).
 async function languageNames(): Promise<Map<string, string>> {
   const db = await getDb();
+  const locale = await getLocale();
   const docs = await db.languages.find({}, { projection: { slug: 1, name: 1 } }).toArray();
-  return new Map(docs.map((l) => [l.slug, l.name]));
+  return new Map(docs.map((l) => [l.slug, languageName(l.slug, l.name, locale)]));
 }
 
 async function tutorCountsBySlug(): Promise<Map<string, number>> {
@@ -88,26 +97,30 @@ async function tutorCountsBySlug(): Promise<Map<string, number>> {
   return new Map(rows.map((r) => [r._id, r.n]));
 }
 
-function toLanguage(l: LanguageDoc, count: number): Language {
+function toLanguage(l: LanguageDoc, count: number, locale: Locale): Language {
+  const en = locale === "en" ? LANGUAGE_EN[l.slug] : undefined;
   return {
-    id: l._id.toHexString(), slug: l.slug, name: l.name, native_name: l.nativeName, greeting: l.greeting, greeting_meaning: l.greetingMeaning,
-    region: l.region, countries: l.countries, speakers: l.speakers, family: l.family, description: l.description, tutor_count: count,
+    id: l._id.toHexString(), slug: l.slug, name: en?.name ?? l.name, native_name: l.nativeName, greeting: l.greeting,
+    greeting_meaning: en?.greeting_meaning ?? l.greetingMeaning, region: l.region, region_label: regionLabel(l.region, locale),
+    countries: en?.countries ?? l.countries, speakers: l.speakers, family: en?.family ?? l.family, description: en?.description ?? l.description,
+    tutor_count: count,
   };
 }
 
 export async function listLanguages(): Promise<Language[]> {
   const db = await getDb();
+  const locale = await getLocale();
   const [docs, counts] = await Promise.all([db.languages.find().toArray(), tutorCountsBySlug()]);
   return docs
-    .map((l) => toLanguage(l, counts.get(l.slug) ?? 0))
-    .sort((a, b) => b.tutor_count - a.tutor_count || a.name.localeCompare(b.name, "fr"));
+    .map((l) => toLanguage(l, counts.get(l.slug) ?? 0, locale))
+    .sort((a, b) => b.tutor_count - a.tutor_count || a.name.localeCompare(b.name, intlLocale(locale)));
 }
 
 export async function getLanguage(slug: string): Promise<Language | null> {
   const db = await getDb();
   const doc = await db.languages.findOne({ slug });
   if (!doc) return null;
-  return toLanguage(doc, (await tutorCountsBySlug()).get(slug) ?? 0);
+  return toLanguage(doc, (await tutorCountsBySlug()).get(slug) ?? 0, await getLocale());
 }
 
 // ── Tutors ────────────────────────────────────────────────
@@ -200,11 +213,12 @@ export async function getTutorReviews(tutorId: string): Promise<Review[]> {
   const _id = toObjectId(tutorId);
   if (!_id) return [];
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const reviews = await db.reviews.find({ tutorId: _id }).sort({ createdAt: -1 }).limit(50).toArray();
   const students = await usersById(reviews.map((r) => r.studentId));
   return reviews.map((r) => {
     const s = students.get(r.studentId.toHexString());
-    return { id: r._id.toHexString(), rating: r.rating, comment: r.comment, created_at: r.createdAt.toISOString(), student_name: s?.name ?? "Ancien membre", student_avatar: s?.avatarUrl ?? "" };
+    return { id: r._id.toHexString(), rating: r.rating, comment: r.comment, created_at: r.createdAt.toISOString(), student_name: s?.name ?? former, student_avatar: s?.avatarUrl ?? "" };
   });
 }
 
@@ -222,6 +236,7 @@ export async function getTutorBookableSlots(tutorId: string): Promise<string[]> 
 
 async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<Lesson[]> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   // Tutors only see a booking once it has been paid for (their own proposals always).
   const lessons = await db.lessons
     .find(
@@ -251,7 +266,7 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
       message: l.message,
       language_name: names.get(l.languageSlug) ?? l.languageSlug,
       other_id: otherId.toHexString(),
-      other_name: other?.name ?? "Ancien membre",
+      other_name: other?.name ?? former,
       other_avatar: other?.avatarUrl ?? "",
       review_rating: ratingByLesson.get(l._id.toHexString()) ?? null,
       payment: l.payment ? { status: l.payment.status, amount_label: formatMoney(l.payment.amount, l.payment.currency) } : null,
@@ -319,6 +334,7 @@ const visibleTo = (userId: ObjectId): Filter<MessageDoc> => ({ $or: [{ senderId:
 
 export async function getConversations(userId: ObjectId): Promise<Conversation[]> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const rows = await db.messages
     .aggregate<{ _id: ObjectId; last: { body: string; createdAt: Date; kind?: NotificationKind }; unread: number }>([
       { $match: visibleTo(userId) },
@@ -337,7 +353,7 @@ export async function getConversations(userId: ObjectId): Promise<Conversation[]
   return rows.map((r) => {
     const o = others.get(r._id.toHexString());
     return {
-      other_id: r._id.toHexString(), other_name: o?.name ?? "Ancien membre", other_avatar: o?.avatarUrl ?? "",
+      other_id: r._id.toHexString(), other_name: o?.name ?? former, other_avatar: o?.avatarUrl ?? "",
       last_body: r.last.body, last_kind: r.last.kind ?? null, last_at: r.last.createdAt.toISOString(), unread: r.unread,
     };
   });
@@ -386,6 +402,7 @@ export type Reply = { id: string; body: string; created_at: string; author_id: s
 
 async function toTopics(docs: import("./db").TopicDoc[]): Promise<Topic[]> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const [authors, names, counts] = await Promise.all([
     usersById(docs.map((t) => t.authorId)),
     languageNames(),
@@ -396,7 +413,7 @@ async function toTopics(docs: import("./db").TopicDoc[]): Promise<Topic[]> {
     const a = authors.get(t.authorId.toHexString());
     return {
       id: t._id.toHexString(), title: t.title, body: t.body, category: t.category, views: t.views, created_at: t.createdAt.toISOString(),
-      author_id: t.authorId.toHexString(), author_name: a?.name ?? "Ancien membre", author_avatar: a?.avatarUrl ?? "", author_role: a?.role ?? "student",
+      author_id: t.authorId.toHexString(), author_name: a?.name ?? former, author_avatar: a?.avatarUrl ?? "", author_role: a?.role ?? "student",
       language_slug: t.languageSlug, language_name: t.languageSlug ? (names.get(t.languageSlug) ?? null) : null,
       reply_count: countByTopic.get(t._id.toHexString()) ?? 0,
     };
@@ -434,11 +451,12 @@ export async function getReplies(topicId: string): Promise<Reply[]> {
   const _id = toObjectId(topicId);
   if (!_id) return [];
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const docs = await db.replies.find({ topicId: _id }).sort({ _id: 1 }).toArray();
   const authors = await usersById(docs.map((r) => r.authorId));
   return docs.map((r) => {
     const a = authors.get(r.authorId.toHexString());
-    return { id: r._id.toHexString(), body: r.body, created_at: r.createdAt.toISOString(), author_id: r.authorId.toHexString(), author_name: a?.name ?? "Ancien membre", author_avatar: a?.avatarUrl ?? "", author_role: a?.role ?? "student" };
+    return { id: r._id.toHexString(), body: r.body, created_at: r.createdAt.toISOString(), author_id: r.authorId.toHexString(), author_name: a?.name ?? former, author_avatar: a?.avatarUrl ?? "", author_role: a?.role ?? "student" };
   });
 }
 
@@ -496,13 +514,14 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
   const _id = toObjectId(lessonId);
   if (!_id) return null;
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const lesson = await db.lessons.findOne({ _id, $or: [{ studentId: viewerId }, { tutorId: viewerId }] });
   if (!lesson) return null;
   const role = lesson.tutorId.equals(viewerId) ? "tutor" : "student";
   const people = await usersById([lesson.studentId, lesson.tutorId]);
   const card = (id: ObjectId) => {
     const u = people.get(id.toHexString());
-    return { id: id.toHexString(), name: u?.name ?? "Ancien membre", avatar_url: u?.avatarUrl ?? "" };
+    return { id: id.toHexString(), name: u?.name ?? former, avatar_url: u?.avatarUrl ?? "" };
   };
   return {
     id: lesson._id.toHexString(),
@@ -512,7 +531,7 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
     language_name: (await languageNames()).get(lesson.languageSlug) ?? lesson.languageSlug,
     role,
     me: card(viewerId),
-    other: lesson.demo ? { id: lesson.studentId.toHexString(), name: DEMO_STUDENT_NAME, avatar_url: "" } : card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    other: lesson.demo ? { id: lesson.studentId.toHexString(), name: DEMO_STUDENT_NAME[await getLocale()], avatar_url: "" } : card(role === "tutor" ? lesson.studentId : lesson.tutorId),
     demo: !!lesson.demo,
     extra_minutes: lesson.extraMinutes ?? 0,
   };
@@ -554,6 +573,7 @@ export type LessonRecap = {
 
 export async function getLessonRecap(lesson: LessonDoc, viewerId: ObjectId): Promise<LessonRecap> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const [chat, documents, feedback, people, transcript] = await Promise.all([
     db.classChat.find({ lessonId: lesson._id }).sort({ _id: 1 }).toArray(),
     listLessonFiles(lesson._id),
@@ -565,7 +585,7 @@ export async function getLessonRecap(lesson: LessonDoc, viewerId: ObjectId): Pro
   return {
     chat: chat.map((m) => ({
       id: m._id.toHexString(),
-      author_name: people.get(m.authorId.toHexString())?.name ?? "Ancien membre",
+      author_name: people.get(m.authorId.toHexString())?.name ?? former,
       mine: m.authorId.equals(viewerId),
       body: m.body,
       created_at: m.createdAt.toISOString(),
@@ -577,7 +597,7 @@ export async function getLessonRecap(lesson: LessonDoc, viewerId: ObjectId): Pro
     feedback,
     transcript: transcript.map((t) => ({
       id: t._id.toHexString(),
-      speaker_name: people.get(t.speakerId.toHexString())?.name ?? "Ancien membre",
+      speaker_name: people.get(t.speakerId.toHexString())?.name ?? former,
       mine: t.speakerId.equals(viewerId),
       text: t.text,
     })),
@@ -595,6 +615,7 @@ export type TutorFeedbackOverview = {
 
 export async function getTutorFeedbackOverview(tutorId: ObjectId): Promise<TutorFeedbackOverview> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const [all, stats] = await Promise.all([
     db.feedback.find({ tutorId }).sort({ updatedAt: -1 }).limit(10).toArray(),
     db.feedback
@@ -622,7 +643,7 @@ export async function getTutorFeedbackOverview(tutorId: ObjectId): Promise<Tutor
     recent: all.map((f) => ({
       ...toFeedbackView(f),
       lesson_id: f.lessonId.toHexString(),
-      student_name: students.get(f.studentId.toHexString())?.name ?? "Ancien membre",
+      student_name: students.get(f.studentId.toHexString())?.name ?? former,
       starts_at: startByLesson.get(f.lessonId.toHexString()) ?? f.createdAt.toISOString(),
     })),
   };
@@ -643,12 +664,13 @@ export type PaymentRow = {
 // Every payment a student made, newest first (abandoned checkouts included, so nothing looks lost).
 export async function getStudentPayments(userId: ObjectId): Promise<PaymentRow[]> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const lessons = await db.lessons.find({ studentId: userId, payment: { $exists: true } }).sort({ "payment.createdAt": -1 }).toArray();
   const [tutors, names] = await Promise.all([usersById(lessons.map((l) => l.tutorId)), languageNames()]);
   return lessons.map((l) => ({
     lesson_id: l._id.toHexString(),
     starts_at: l.startsAt.toISOString(),
-    other_name: tutors.get(l.tutorId.toHexString())?.name ?? "Ancien membre",
+    other_name: tutors.get(l.tutorId.toHexString())?.name ?? former,
     language_name: names.get(l.languageSlug) ?? l.languageSlug,
     amount_label: formatMoney(l.payment!.amount, l.payment!.currency),
     status: l.payment!.status,
@@ -661,12 +683,13 @@ export type EarningRow = { lesson_id: string; starts_at: string; other_name: str
 // What a tutor earned on each completed lesson, after Riya's commission.
 export async function getTutorEarnings(userId: ObjectId, commission: number): Promise<EarningRow[]> {
   const db = await getDb();
+  const former = FORMER_MEMBER[await getLocale()];
   const lessons = await db.lessons.find({ tutorId: userId, status: "completed" }).sort({ startsAt: -1 }).toArray();
   const [students, names] = await Promise.all([usersById(lessons.map((l) => l.studentId)), languageNames()]);
   return lessons.map((l) => ({
     lesson_id: l._id.toHexString(),
     starts_at: l.startsAt.toISOString(),
-    other_name: students.get(l.studentId.toHexString())?.name ?? "Ancien membre",
+    other_name: students.get(l.studentId.toHexString())?.name ?? former,
     language_name: names.get(l.languageSlug) ?? l.languageSlug,
     price: l.price,
     net: Math.round(l.price * (1 - commission) * 100) / 100,

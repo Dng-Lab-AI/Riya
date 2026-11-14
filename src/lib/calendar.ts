@@ -1,5 +1,7 @@
 import "server-only";
 import type { Filter } from "mongodb";
+import { languageName } from "@/i18n/catalog";
+import { getLocale } from "@/i18n/server";
 import { openIntervals, scheduleOf } from "./availability";
 import { getDb, REAL_LESSON, type LessonDoc, type ObjectId, type WeeklyRange } from "./db";
 
@@ -67,9 +69,10 @@ async function firstLessonIds(tutorId: ObjectId, studentIds: ObjectId[]): Promis
 }
 
 export async function getTutorCalendar(tutorId: ObjectId, from: Date, to: Date): Promise<TutorCalendarData> {
+  const locale = await getLocale();
   const db = await getDb();
   const tutor = await db.users.findOne({ _id: tutorId });
-  if (!tutor?.tutor) throw new Error("Profil de tuteur introuvable.");
+  if (!tutor?.tutor) throw new Error("Tutor profile not found.");
 
   const [lessons, { open, blocks }, studentIds, languageDocs] = await Promise.all([
     db.lessons.find({ tutorId, startsAt: { $gte: from, $lt: to }, status: { $ne: "cancelled" }, ...VISIBLE_TO_TUTOR }).sort({ startsAt: 1 }).toArray(),
@@ -82,7 +85,7 @@ export async function getTutorCalendar(tutorId: ObjectId, from: Date, to: Date):
     .toArray();
   const people = new Map(studentDocs.map((u) => [u._id.toHexString(), u]));
   const firsts = await firstLessonIds(tutorId, [...new Map(lessons.map((l) => [l.studentId.toHexString(), l.studentId])).values()]);
-  const languageNames = new Map(languageDocs.map((l) => [l.slug, l.name]));
+  const languageNames = new Map(languageDocs.map((l) => [l.slug, languageName(l.slug, l.name, locale)]));
   const schedule = scheduleOf(tutor.tutor, tutor.country);
 
   return {
@@ -100,7 +103,7 @@ export async function getTutorCalendar(tutorId: ObjectId, from: Date, to: Date):
         language_name: languageNames.get(l.languageSlug) ?? l.languageSlug,
         message: l.message,
         student_id: l.studentId.toHexString(),
-        student_name: student?.name ?? "Ancien membre",
+        student_name: student?.name ?? (locale === "en" ? "Former member" : "Ancien membre"),
         student_avatar: student?.avatarUrl ?? "",
       };
     }),

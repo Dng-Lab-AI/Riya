@@ -2,6 +2,8 @@
 
 import { after } from "next/server";
 import { redirect } from "next/navigation";
+import { defineMessages } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 import { requireUser } from "../auth";
 import { busyIntervals, isSlotBookable, lessonInterval, MIN_NOTICE_MS } from "../availability";
 import { getDb, ObjectId, toObjectId, type LessonDoc } from "../db";
@@ -12,28 +14,48 @@ import { overlaps } from "../timezone";
 import { generateLessonSummary, isSummaryAvailable } from "../summary";
 import { int, refreshAll, text, type FormState } from "./shared";
 
+const M = defineMessages({
+  en: {
+    notFound: "Tutor not found.", yourself: "You can't book a lesson with yourself.", when: "Choose a date and a time.",
+    notice: "Book at least one hour in advance.", country: "Enter the country you're paying from.",
+    noPayment: "Online payment isn't available yet. Please try again later.", language: "This tutor doesn't teach this language.",
+    taken: "This slot is no longer available. Choose another one.", failed: "The payment couldn't start. Please try again in a moment.",
+    rating: "Choose a rating from 1 to 5.", completedOnly: "You can only review your completed lessons.", already: "You've already reviewed this lesson.",
+    thanks: "Thank you for your review!", description: (name: string) => `Lesson with ${name}`,
+  },
+  fr: {
+    notFound: "Tuteur introuvable.", yourself: "Vous ne pouvez pas réserver un cours avec vous-même.", when: "Choisissez une date et une heure.",
+    notice: "Réservez au moins une heure à l'avance.", country: "Indiquez le pays depuis lequel vous payez.",
+    noPayment: "Le paiement en ligne n'est pas encore disponible. Réessayez plus tard.", language: "Ce tuteur n'enseigne pas cette langue.",
+    taken: "Ce créneau n'est plus disponible. Choisissez-en un autre.", failed: "Le paiement n'a pas pu démarrer. Réessayez dans un instant.",
+    rating: "Choisissez une note de 1 à 5.", completedOnly: "Vous ne pouvez évaluer que vos cours terminés.", already: "Vous avez déjà évalué ce cours.",
+    thanks: "Merci pour votre avis !", description: (name: string) => `Cours avec ${name}`,
+  },
+});
+
 export async function bookLesson(tutorId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser(`/tuteurs/${tutorId}`);
+  const t = M[await getLocale()];
   const tutorOid = toObjectId(tutorId);
-  if (!tutorOid) return { error: "Tuteur introuvable." };
-  if (user._id.equals(tutorOid)) return { error: "Vous ne pouvez pas réserver un cours avec vous-même." };
+  if (!tutorOid) return { error: t.notFound };
+  if (user._id.equals(tutorOid)) return { error: t.yourself };
 
   const startsAt = new Date(text(formData, "starts_at", 40));
   const languageSlug = text(formData, "language", 40);
   const message = text(formData, "message", 1000);
   const country = text(formData, "country", 60);
 
-  if (Number.isNaN(startsAt.getTime())) return { error: "Choisissez une date et une heure." };
-  if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: "Réservez au moins une heure à l'avance." };
-  if (!isKnownCountry(country)) return { error: "Indiquez le pays depuis lequel vous payez." };
-  if (!isPaymentAvailable()) return { error: "Le paiement en ligne n'est pas encore disponible. Réessayez plus tard." };
+  if (Number.isNaN(startsAt.getTime())) return { error: t.when };
+  if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: t.notice };
+  if (!isKnownCountry(country)) return { error: t.country };
+  if (!isPaymentAvailable()) return { error: t.noPayment };
 
   const db = await getDb();
   const tutor = await db.users.findOne({ _id: tutorOid, role: "tutor", status: "active", "tutor.approved": true, "tutor.languages.slug": languageSlug });
-  if (!tutor?.tutor) return { error: "Ce tuteur n'enseigne pas cette langue." };
+  if (!tutor?.tutor) return { error: t.language };
 
   // The slot must be within the tutor's availability and not overlap another lesson.
-  if (!(await isSlotBookable(tutor, startsAt))) return { error: "Ce créneau n'est plus disponible. Choisissez-en un autre." };
+  if (!(await isSlotBookable(tutor, startsAt))) return { error: t.taken };
 
   const lesson: LessonDoc = {
     _id: new ObjectId(), studentId: user._id, tutorId: tutorOid, languageSlug, startsAt, durationMinutes: 50,
@@ -47,11 +69,11 @@ export async function bookLesson(tutorId: string, _prev: FormState, formData: Fo
 
   let checkoutUrl: string;
   try {
-    checkoutUrl = await startCheckout(lesson, user, quoteLesson(country, lesson.price), `Cours avec ${tutor.name}`);
+    checkoutUrl = await startCheckout(lesson, user, quoteLesson(country, lesson.price), t.description(tutor.name));
   } catch (err) {
-    console.error("Paiement de la réservation", err);
+    console.error("Booking payment", err);
     await db.lessons.deleteOne({ _id: lesson._id });
-    return { error: "Le paiement n'a pas pu démarrer. Réessayez dans un instant." };
+    return { error: t.failed };
   }
   refreshAll();
   redirect(checkoutUrl);
@@ -73,7 +95,7 @@ export async function payLesson(lessonId: string) {
     redirect("/tableau-de-bord?creneau=perdu");
   }
 
-  const checkoutUrl = await startCheckout(lesson, user, quoteLesson(lesson.payment.country, lesson.price), `Cours avec ${tutor.name}`);
+  const checkoutUrl = await startCheckout(lesson, user, quoteLesson(lesson.payment.country, lesson.price), M[await getLocale()].description(tutor.name));
   redirect(checkoutUrl);
 }
 
@@ -102,7 +124,7 @@ export async function acceptProposal(lessonId: string) {
   }
 
   const country = lesson.payment?.country ?? (isKnownCountry(user.country) ? user.country : LAUNCH_COUNTRY);
-  const checkoutUrl = await startCheckout(lesson, user, quoteLesson(country, lesson.price), `Cours avec ${tutor.name}`);
+  const checkoutUrl = await startCheckout(lesson, user, quoteLesson(country, lesson.price), M[await getLocale()].description(tutor.name));
   redirect(checkoutUrl);
 }
 
@@ -154,22 +176,23 @@ export async function leaveReview(lessonId: string, _prev: FormState, formData: 
   const user = await requireUser("/tableau-de-bord");
   const rating = int(formData, "rating");
   const comment = text(formData, "comment", 1000);
-  if (!(rating >= 1 && rating <= 5)) return { error: "Choisissez une note de 1 à 5." };
+  const t = M[await getLocale()];
+  if (!(rating >= 1 && rating <= 5)) return { error: t.rating };
 
   const _id = toObjectId(lessonId);
   const db = await getDb();
   const lesson = _id && (await db.lessons.findOne({ _id, studentId: user._id, status: "completed" }));
-  if (!lesson) return { error: "Vous ne pouvez évaluer que vos cours terminés." };
+  if (!lesson) return { error: t.completedOnly };
 
   try {
     await db.reviews.insertOne({ _id: new ObjectId(), lessonId: lesson._id, studentId: user._id, tutorId: lesson.tutorId, rating, comment, createdAt: new Date() });
   } catch (err) {
-    if ((err as { code?: number }).code === 11000) return { error: "Vous avez déjà évalué ce cours." };
+    if ((err as { code?: number }).code === 11000) return { error: t.already };
     throw err;
   }
   await db.users.updateOne({ _id: lesson.tutorId }, { $inc: { "tutor.ratingSum": rating, "tutor.ratingCount": 1 } });
   refreshAll();
-  return { success: "Merci pour votre avis !" };
+  return { success: t.thanks };
 }
 
 export async function toggleFavorite(tutorId: string) {

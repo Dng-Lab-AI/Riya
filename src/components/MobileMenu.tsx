@@ -3,10 +3,13 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { useLocale } from "@/i18n/client";
 import { useDismiss } from "./AccountMenu";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function MobileMenu({ links, signedIn, children }: { links: { href: string; label: string }[]; signedIn: boolean; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const fr = useLocale() === "fr";
   const close = useCallback(() => setOpen(false), []);
   const ref = useDismiss<HTMLDivElement>(open, close);
 
@@ -24,13 +27,14 @@ export function MobileMenu({ links, signedIn, children }: { links: { href: strin
               </Link>
             ))}
           </nav>
+          <div className="mt-3 flex justify-center border-t border-sand-200 pt-3"><LanguageSwitcher /></div>
           <div className="mt-3 border-t border-sand-200 pt-3">
             {signedIn ? (
               children
             ) : (
               <div className="flex gap-2">
-                <Link href="/connexion" onClick={close} className="btn-outline flex-1">Se connecter</Link>
-                <Link href="/inscription" onClick={close} className="btn-dark flex-1">Commencer</Link>
+                <Link href="/connexion" onClick={close} className="btn-outline flex-1">{fr ? "Se connecter" : "Log in"}</Link>
+                <Link href="/inscription" onClick={close} className="btn-dark flex-1">{fr ? "Commencer" : "Get started"}</Link>
               </div>
             )}
           </div>

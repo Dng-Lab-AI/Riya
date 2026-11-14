@@ -2,6 +2,8 @@
 
 import { Binary } from "mongodb";
 import { redirect } from "next/navigation";
+import { defineMessages } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 import { requireUser } from "../auth";
 import { availabilityTags } from "../availability";
 import { AVAILABILITY, SPECIALTIES } from "../constants";
@@ -11,17 +13,41 @@ import { isKnownCountry } from "../payments/countries";
 import { emptyTutorProfile } from "../tutor-profile";
 import { int, refreshAll, text, type FormState } from "./shared";
 
+const M = defineMessages({
+  en: {
+    name: "Enter your name.", country: "Choose your country from the list.", accountSaved: "Account updated.",
+    noPhoto: "No photo received.", tooHeavy: "This photo is too large. Try another one.", format: "Format not recognised: choose a JPEG, PNG or WebP photo.",
+    tutorsOnly: "Only tutors have a public profile.", headline: "Your headline must be at least 10 characters long.",
+    about: "Introduce yourself in at least 50 characters.", rate: "The price must be between 5 and 200.", years: "Invalid years of experience.",
+    languages: "Choose at least one language you teach.", schedule: "Add availability in your calendar.", availability: "Choose at least one availability slot.",
+    saved: "Profile saved.", savedPending: "Profile saved. It will be visible as soon as our team approves it.",
+    noAccount: "Account not found.", wrongPassword: "Current password is incorrect.", short: "The new password must be at least 8 characters long.",
+    mismatch: "The two passwords don't match.", changed: "Password changed.", set: "Password set. You can now also log in with your email.",
+  },
+  fr: {
+    name: "Indiquez votre nom.", country: "Choisissez votre pays dans la liste.", accountSaved: "Compte mis à jour.",
+    noPhoto: "Aucune photo reçue.", tooHeavy: "Cette photo est trop lourde. Essayez-en une autre.", format: "Format non reconnu : choisissez une photo JPEG, PNG ou WebP.",
+    tutorsOnly: "Seuls les tuteurs ont un profil public.", headline: "Votre accroche doit faire au moins 10 caractères.",
+    about: "Présentez-vous en au moins 50 caractères.", rate: "Le tarif doit être compris entre 5 et 200.", years: "Années d'expérience invalides.",
+    languages: "Choisissez au moins une langue enseignée.", schedule: "Ajoutez des disponibilités dans votre calendrier.", availability: "Indiquez au moins un créneau de disponibilité.",
+    saved: "Profil enregistré.", savedPending: "Profil enregistré. Il sera visible dès sa validation par notre équipe.",
+    noAccount: "Compte introuvable.", wrongPassword: "Mot de passe actuel incorrect.", short: "Le nouveau mot de passe doit contenir au moins 8 caractères.",
+    mismatch: "Les deux mots de passe ne correspondent pas.", changed: "Mot de passe modifié.", set: "Mot de passe défini. Vous pouvez aussi vous connecter avec votre e-mail.",
+  },
+});
+
 export async function updateAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/profil");
   const name = text(formData, "name", 80);
   const country = text(formData, "country", 60);
+  const t = M[await getLocale()];
 
-  if (name.length < 2) return { error: "Indiquez votre nom." };
-  if (!isKnownCountry(country)) return { error: "Choisissez votre pays dans la liste." };
+  if (name.length < 2) return { error: t.name };
+  if (!isKnownCountry(country)) return { error: t.country };
 
   await (await getDb()).users.updateOne({ _id: user._id }, { $set: { name, country } });
   refreshAll();
-  return { success: "Compte mis à jour." };
+  return { success: t.accountSaved };
 }
 
 // The browser sends the photo already cropped and resized (see AvatarPicker), far under this size.
@@ -40,12 +66,13 @@ export type AvatarResult = { error: string } | { avatarUrl: string };
 export async function uploadAvatar(formData: FormData): Promise<AvatarResult> {
   const user = await requireUser("/profil");
   const file = formData.get("photo");
-  if (!(file instanceof File) || file.size === 0) return { error: "Aucune photo reçue." };
-  if (file.size > AVATAR_MAX_BYTES) return { error: "Cette photo est trop lourde. Essayez-en une autre." };
+  const t = M[await getLocale()];
+  if (!(file instanceof File) || file.size === 0) return { error: t.noPhoto };
+  if (file.size > AVATAR_MAX_BYTES) return { error: t.tooHeavy };
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const contentType = imageType(bytes);
-  if (!contentType) return { error: "Format non reconnu : choisissez une photo JPEG, PNG ou WebP." };
+  if (!contentType) return { error: t.format };
 
   const db = await getDb();
   await db.avatars.replaceOne({ _id: user._id }, { data: new Binary(bytes), contentType, updatedAt: new Date() }, { upsert: true });
@@ -67,7 +94,8 @@ export async function removeAvatar(): Promise<AvatarResult> {
 
 export async function updateTutorProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/profil");
-  if (user.role !== "tutor") return { error: "Seuls les tuteurs ont un profil public." };
+  const t = M[await getLocale()];
+  if (user.role !== "tutor") return { error: t.tutorsOnly };
 
   const headline = text(formData, "headline", 120);
   const about = text(formData, "about", 3000);
@@ -89,13 +117,13 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
     .map((slug) => ({ slug, level: String(formData.get(`lang_${slug}`) ?? "") }))
     .filter((l): l is { slug: string; level: "native" | "fluent" } => l.level === "native" || l.level === "fluent");
 
-  if (headline.length < 10) return { error: "Votre accroche doit faire au moins 10 caractères." };
-  if (about.length < 50) return { error: "Présentez-vous en au moins 50 caractères." };
-  if (!(rate >= 5 && rate <= 200)) return { error: "Le tarif doit être compris entre 5 et 200." };
-  if (!(years >= 0 && years <= 60)) return { error: "Années d'expérience invalides." };
-  if (languages.length === 0) return { error: "Choisissez au moins une langue enseignée." };
+  if (headline.length < 10) return { error: t.headline };
+  if (about.length < 50) return { error: t.about };
+  if (!(rate >= 5 && rate <= 200)) return { error: t.rate };
+  if (!(years >= 0 && years <= 60)) return { error: t.years };
+  if (languages.length === 0) return { error: t.languages };
   if (availability.length === 0) {
-    return { error: schedule ? "Ajoutez des disponibilités dans votre calendrier." : "Indiquez au moins un créneau de disponibilité." };
+    return { error: schedule ? t.schedule : t.availability };
   }
 
   const updated = await db.users.findOneAndUpdate(
@@ -111,9 +139,7 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
 
   refreshAll();
   return {
-    success: updated?.tutor?.approved
-      ? "Profil enregistré."
-      : "Profil enregistré. Il sera visible dès sa validation par notre équipe.",
+    success: updated?.tutor?.approved ? t.saved : t.savedPending,
   };
 }
 
@@ -123,16 +149,17 @@ export async function changePassword(_prev: FormState, formData: FormData): Prom
   const next = String(formData.get("password") ?? "");
   const db = await getDb();
   const doc = await db.users.findOne({ _id: user._id }, { projection: { passwordHash: 1 } });
-  if (!doc) return { error: "Compte introuvable." };
+  const t = M[await getLocale()];
+  if (!doc) return { error: t.noAccount };
 
   // Accounts created with Google have no password yet: they can set one directly.
-  if (doc.passwordHash && !verifyPassword(current, doc.passwordHash)) return { error: "Mot de passe actuel incorrect." };
-  if (next.length < 8) return { error: "Le nouveau mot de passe doit contenir au moins 8 caractères." };
-  if (next !== String(formData.get("password_confirm") ?? "")) return { error: "Les deux mots de passe ne correspondent pas." };
+  if (doc.passwordHash && !verifyPassword(current, doc.passwordHash)) return { error: t.wrongPassword };
+  if (next.length < 8) return { error: t.short };
+  if (next !== String(formData.get("password_confirm") ?? "")) return { error: t.mismatch };
 
   await db.users.updateOne({ _id: user._id }, { $set: { passwordHash: hashPassword(next) } });
   refreshAll();
-  return { success: doc.passwordHash ? "Mot de passe modifié." : "Mot de passe défini. Vous pouvez aussi vous connecter avec votre e-mail." };
+  return { success: doc.passwordHash ? t.changed : t.set };
 }
 
 // Lets an existing student open a tutor profile without creating a second account.

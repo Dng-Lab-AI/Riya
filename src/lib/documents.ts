@@ -1,5 +1,6 @@
 import "server-only";
 import { Readable } from "node:stream";
+import type { Locale } from "@/i18n";
 import { LESSON_FILE_MAX_BYTES, LESSON_FILE_TYPES } from "./constants";
 import { getDb, type LessonFileMeta, type ObjectId } from "./db";
 
@@ -19,10 +20,24 @@ export async function listLessonFiles(lessonId: ObjectId): Promise<LessonFile[]>
   }));
 }
 
-export function validateLessonFile(file: File): string | null {
-  if (!LESSON_FILE_TYPES[file.type]) return "Type de fichier non accepté (PDF, images, audio, Word, PowerPoint, Excel ou texte).";
-  if (file.size > LESSON_FILE_MAX_BYTES) return "Fichier trop volumineux (15 Mo maximum).";
-  if (file.size === 0) return "Le fichier est vide.";
+const FILE_ERRORS: Record<Locale, { type: string; size: string; empty: string }> = {
+  en: {
+    type: "File type not accepted (PDF, images, audio, Word, PowerPoint, Excel or text).",
+    size: "File too large (15 MB maximum).",
+    empty: "The file is empty.",
+  },
+  fr: {
+    type: "Type de fichier non accepté (PDF, images, audio, Word, PowerPoint, Excel ou texte).",
+    size: "Fichier trop volumineux (15 Mo maximum).",
+    empty: "Le fichier est vide.",
+  },
+};
+
+export function validateLessonFile(file: File, locale: Locale): string | null {
+  const t = FILE_ERRORS[locale];
+  if (!LESSON_FILE_TYPES[file.type]) return t.type;
+  if (file.size > LESSON_FILE_MAX_BYTES) return t.size;
+  if (file.size === 0) return t.empty;
   return null;
 }
 
