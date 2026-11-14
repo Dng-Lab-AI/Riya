@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ExternalLink, GraduationCap, House, LogOut, MessageCircle, Settings, ShieldCheck, TrendingUp, UserRound, Wallet } from "lucide-react";
+import { CalendarDays, CalendarRange, ExternalLink, GraduationCap, Heart, House, LogOut, MessageCircle, MonitorPlay, Settings, ShieldCheck, TrendingUp, UserRound, UsersRound, Wallet } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 
 type Item = { href: string; label: string; icon: typeof CalendarDays; badge?: number };
@@ -13,12 +13,25 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
   const sections: { title: string; items: Item[] }[] = [
     {
       title: role === "tutor" ? "Mon enseignement" : "Mon apprentissage",
-      items: [
-        ...(role === "tutor" ? [{ href: "/accueil", label: "Accueil", icon: House }] : []),
-        { href: "/progression", label: role === "tutor" ? "Mon évolution" : "Ma progression", icon: TrendingUp },
-        { href: "/tableau-de-bord", label: "Mes cours", icon: CalendarDays },
-        { href: "/messages", label: "Messages", icon: MessageCircle, badge: unread },
-      ],
+      // Tutors: the same order as their daily routine (home, messages, calendar, students, classroom, insights).
+      // Students: their lessons first, then their tutors and messages.
+      items:
+        role === "tutor"
+          ? [
+              { href: "/accueil", label: "Accueil", icon: House },
+              { href: "/messages", label: "Messages", icon: MessageCircle, badge: unread },
+              { href: "/calendrier", label: "Calendrier", icon: CalendarRange },
+              { href: "/tableau-de-bord", label: "Mes cours", icon: CalendarDays },
+              { href: "/eleves", label: "Mes élèves", icon: UsersRound },
+              { href: "/salle-de-demo", label: "Salle de démo", icon: MonitorPlay },
+              { href: "/progression", label: "Mon évolution", icon: TrendingUp },
+            ]
+          : [
+              { href: "/tableau-de-bord", label: "Mes cours", icon: CalendarDays },
+              { href: "/mes-tuteurs", label: "Mes tuteurs", icon: Heart },
+              { href: "/messages", label: "Messages", icon: MessageCircle, badge: unread },
+              { href: "/progression", label: "Ma progression", icon: TrendingUp },
+            ],
     },
     {
       title: "Mon profil",

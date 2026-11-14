@@ -21,6 +21,24 @@ export type TutorProfile = {
   ratingSum: number;
   ratingCount: number;
   lessonCount: number;
+  // Fixed weekly availability set in the calendar. Absent on older profiles: derived from `availability`.
+  schedule?: WeeklySchedule;
+};
+
+// Hours a tutor can be booked every week, on the clock of their own time zone.
+// day: 0 = Monday … 6 = Sunday; start / end: minutes after midnight (end may be 1440).
+export type WeeklyRange = { day: number; start: number; end: number };
+export type WeeklySchedule = { timeZone: string; ranges: WeeklyRange[]; updatedAt: Date };
+
+// One-off changes to the weekly schedule: time off (not bookable) or extra slots (bookable).
+export type CalendarBlockDoc = {
+  _id: ObjectId;
+  tutorId: ObjectId;
+  kind: "time_off" | "extra";
+  startsAt: Date;
+  endsAt: Date;
+  note: string;
+  createdAt: Date;
 };
 
 export type UserDoc = {
@@ -33,6 +51,8 @@ export type UserDoc = {
   country: string;
   avatarUrl: string;
   favorites: ObjectId[];
+  // Conversations moved to the "Archivés" tab of the messages (by the other member's id).
+  archivedChats?: ObjectId[];
   tutor?: TutorProfile;
   // false until the owner clicks the link sent by e-mail; absent on older accounts (treated as verified).
   emailVerified?: boolean;
@@ -95,8 +115,21 @@ export type LessonDoc = {
   assistant?: { enabled: boolean; consent: Record<string, boolean> };
   // Absent on lessons booked before online payment existed (treated as settled).
   payment?: LessonPayment;
+  // Set when the tutor scheduled the lesson from the calendar: the student accepts (and pays) it.
+  proposedBy?: "tutor";
+  // Shared by the lessons of a weekly series.
+  seriesId?: ObjectId;
+  // When the tutor was told that the student left this booking unpaid.
+  abandonNotifiedAt?: Date;
+  // Practice classroom of a tutor (fictional student): never listed, counted or billed.
+  demo?: true;
+  // Minutes the tutor added at the end of the lesson from the classroom (MAX_EXTRA_MINUTES at most).
+  extraMinutes?: number;
   createdAt: Date;
 };
+
+// Add to lesson queries so practice classrooms never show up as real lessons.
+export const REAL_LESSON = { demo: { $exists: false } } as const;
 
 // What the student paid for a lesson, in their own currency (the price stays in euros).
 export type LessonPayment = {
@@ -171,7 +204,31 @@ export type LessonFileMeta = { lessonId: ObjectId; uploaderId: ObjectId; content
 export type AvatarDoc = { _id: ObjectId; data: Binary; contentType: string; updatedAt: Date };
 
 export type ReviewDoc = { _id: ObjectId; lessonId: ObjectId; studentId: ObjectId; tutorId: ObjectId; rating: number; comment: string; createdAt: Date };
-export type MessageDoc = { _id: ObjectId; senderId: ObjectId; recipientId: ObjectId; body: string; readAt: Date | null; createdAt: Date };
+export type MessageDoc = {
+  _id: ObjectId;
+  senderId: ObjectId;
+  recipientId: ObjectId;
+  body: string;
+  readAt: Date | null;
+  createdAt: Date;
+  // Set on automatic notifications about the sender, shown only to the recipient (the tutor):
+  // the student showed interest in the profile, or started a booking without finishing it.
+  kind?: NotificationKind;
+};
+export type NotificationKind = "interest" | "booking_abandoned";
+
+// A student started booking a tutor (picked a time slot). Used to remind the tutor
+// when the booking is not finished.
+export type BookingIntentDoc = {
+  _id: ObjectId;
+  studentId: ObjectId;
+  tutorId: ObjectId;
+  startedAt: Date;
+  lastActivityAt: Date;
+  // The student went on to the payment page.
+  completedAt: Date | null;
+  notifiedAt: Date | null;
+};
 export type TopicDoc = { _id: ObjectId; authorId: ObjectId; category: string; languageSlug: string | null; title: string; body: string; views: number; createdAt: Date };
 export type ReplyDoc = { _id: ObjectId; topicId: ObjectId; authorId: ObjectId; body: string; createdAt: Date };
 
@@ -195,6 +252,8 @@ export type Collections = {
   events: Collection<ClassEventDoc>;
   transcript: Collection<TranscriptDoc>;
   avatars: Collection<AvatarDoc>;
+  calendarBlocks: Collection<CalendarBlockDoc>;
+  bookingIntents: Collection<BookingIntentDoc>;
   files: GridFSBucket;
   meta: Collection<{ _id: string; at: Date }>;
 };
@@ -218,6 +277,8 @@ function collectionsOf(db: Db): Collections {
     events: db.collection("classroom_events"),
     transcript: db.collection("classroom_transcript"),
     avatars: db.collection("avatars"),
+    calendarBlocks: db.collection("calendar_blocks"),
+    bookingIntents: db.collection("booking_intents"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     meta: db.collection("meta"),
   };
@@ -262,6 +323,12 @@ async function init(): Promise<Collections> {
     c.events.createIndex({ lessonId: 1, _id: 1 }),
     c.transcript.createIndex({ lessonId: 1, _id: 1 }),
     c.feedback.createIndex({ tutorId: 1, createdAt: -1 }),
+    c.calendarBlocks.createIndex({ tutorId: 1, startsAt: 1 }),
+    c.messages.createIndex({ kind: 1, senderId: 1, recipientId: 1, createdAt: -1 }, { partialFilterExpression: { kind: { $exists: true } } }),
+    c.bookingIntents.createIndex({ studentId: 1, tutorId: 1, completedAt: 1, notifiedAt: 1 }),
+    c.bookingIntents.createIndex({ completedAt: 1, notifiedAt: 1, lastActivityAt: 1 }),
+    // Old intents are only history: drop them after 60 days.
+    c.bookingIntents.createIndex({ startedAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 }),
     client.db().collection("lesson_files.files").createIndex({ "metadata.lessonId": 1, uploadDate: 1 }),
   ]);
 

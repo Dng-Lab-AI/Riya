@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { isClassroomOpen } from "@/lib/classroom";
-import { BOARD_COLORS, REACTIONS } from "@/lib/constants";
+import { BOARD_COLORS, MAX_EXTRA_MINUTES, REACTIONS } from "@/lib/constants";
 import { getDb, ObjectId, toObjectId, type LessonDoc, type LiveQuiz } from "@/lib/db";
 import { listLessonFiles } from "@/lib/documents";
 
@@ -101,6 +101,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/classe/[
     documents,
     presentedFileId: lesson.presentedFileId?.toHexString() ?? null,
     boardOpen: !!lesson.boardOpen,
+    extraMinutes: lesson.extraMinutes ?? 0,
     notes: lesson.notes ? { keyPoints: lesson.notes.keyPoints, vocabulary: lesson.notes.vocabulary, homework: lesson.notes.homework } : null,
     hands: { me: !!lesson.hands?.[user.id], other: !!lesson.hands?.[otherId.toHexString()] },
     quiz: quizFor(lesson.liveQuiz, isTutor),
@@ -142,6 +143,7 @@ type Input = {
   accepted?: boolean;
   text?: string;
   lang?: string;
+  minutes?: number;
 };
 
 const clip = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max);
@@ -191,6 +193,23 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
       if (fileId && !(await db.files.find({ _id: fileId, "metadata.lessonId": lesson._id }).hasNext())) return bad("Document introuvable", 404);
       await set(fileId ? { presentedFileId: fileId, boardOpen: false } : { presentedFileId: null });
       return ok();
+    }
+
+    // The tutor adds a few minutes at the end of the lesson (MAX_EXTRA_MINUTES in total).
+    case "extend": {
+      if (!isTutor) return bad("Réservé au tuteur", 403);
+      const minutes = Number(input.minutes);
+      const current = lesson.extraMinutes ?? 0;
+      if (!Number.isInteger(minutes) || minutes < 1) return bad();
+      if (current >= MAX_EXTRA_MINUTES) return bad(`Le cours a déjà été prolongé de ${MAX_EXTRA_MINUTES} minutes, le maximum.`);
+      const extraMinutes = Math.min(MAX_EXTRA_MINUTES, current + minutes);
+      // The filter on the current value keeps two quick clicks from going past the maximum.
+      const { modifiedCount } = await db.lessons.updateOne(
+        { _id: lesson._id, ...(current ? { extraMinutes: current } : { extraMinutes: { $exists: false } }) },
+        { $set: { extraMinutes } },
+      );
+      if (!modifiedCount) return bad("Le temps vient d'être modifié, réessayez.", 409);
+      return Response.json({ extraMinutes });
     }
 
     // Live notes typed by the tutor; the student sees them update.

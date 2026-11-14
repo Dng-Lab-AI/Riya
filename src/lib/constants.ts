@@ -53,6 +53,9 @@ export const LESSON_STATUS: Record<string, { label: string; className: string }>
   cancelled: { label: "Annulé", className: "bg-clay-100 text-clay-800" },
 };
 
+// The fictional student of a tutor's practice classroom (the first word is used as a first name).
+export const DEMO_STUDENT_NAME = "Kofi (élève de démonstration)";
+
 // Start times offered when booking a lesson (local time of the student).
 export const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => `${String(i + 7).padStart(2, "0")}:00`);
 
@@ -143,6 +146,9 @@ export function parseVocabulary(text: string): { term: string; translation: stri
       return { term: term.trim(), translation: rest.join(" – ").trim() };
     });
 }
+
+// The lesson ends on its own at its end time; the tutor can extend it by this many minutes in total.
+export const MAX_EXTRA_MINUTES = 5;
 
 // Live classroom: quick reactions and whiteboard pen colours.
 export const REACTIONS = ["👏", "❤️", "😂", "🔥", "👍", "🎉", "🤔", "😮"];

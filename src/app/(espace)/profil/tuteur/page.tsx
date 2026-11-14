@@ -48,6 +48,7 @@ export default async function TutorProfilePage({ searchParams }: PageProps<"/pro
           availability: tutor.availability,
           speaks: tutor.speaks,
           has_photo: !!tutor.avatar_url,
+          has_schedule: tutor.has_schedule,
         }}
         languages={languages.map((l) => ({ slug: l.slug, name: l.name })).sort((a, b) => a.name.localeCompare(b.name, "fr"))}
         levels={Object.fromEntries(tutor.languages.map((l) => [l.slug, l.level]))}

@@ -9,7 +9,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { AVAILABILITY, SITE, SPECIALTIES, formatPrice, labelFor, timeAgo } from "@/lib/constants";
 import { fxRates, quoteLesson } from "@/lib/payments";
 import { LAUNCH_COUNTRY, findCountry, formatMoney, isKnownCountry } from "@/lib/payments/countries";
-import { getTutor, getTutorBusySlots, getTutorReviews, isFavorite } from "@/lib/queries";
+import { getTutor, getTutorBookableSlots, getTutorReviews, isFavorite } from "@/lib/queries";
+import { hasShownInterest } from "@/lib/notifications";
+import { toObjectId } from "@/lib/db";
+import { InterestButton } from "@/components/InterestButton";
 
 async function loadTutor(params: PageProps<"/tuteurs/[id]">["params"]) {
   return getTutor((await params).id);
@@ -30,7 +33,10 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
   const known = findCountry(user?.country).name;
   const payCountry = isKnownCountry(known) ? known : LAUNCH_COUNTRY;
   const localPrice = quoteLesson(payCountry, tutor.hourly_rate);
-  const [reviews, favorite, busySlots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBusySlots(tutor.id)]);
+  const [reviews, favorite, slots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBookableSlots(tutor.id)]);
+  // Students can tell the tutor they are interested, so the tutor can reach out first.
+  const canShowInterest = user?.role === "student" && !isSelf && tutor.approved;
+  const interested = canShowInterest ? await hasShownInterest(user._id, toObjectId(tutor.id)!) : false;
 
   return (
     <div className="pattern-bogolan">
@@ -143,7 +149,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
               ) : !tutor.approved ? (
                 <p className="text-sm text-earth-600">Les réservations ouvriront après validation du profil.</p>
               ) : user ? (
-                <BookingForm tutorId={tutor.id} languages={tutor.languages} busySlots={busySlots} priceEur={tutor.hourly_rate} defaultCountry={payCountry} rates={fxRates()} />
+                <BookingForm tutorId={tutor.id} languages={tutor.languages} slots={slots} priceEur={tutor.hourly_rate} defaultCountry={payCountry} rates={fxRates()} />
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-earth-600">Connectez-vous pour choisir un créneau et réserver votre cours.</p>
@@ -155,6 +161,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
             {user && !isSelf && (
               <Link href={`/messages/${tutor.id}`} className="btn-outline mt-3 w-full"><MessageCircle size={16} /> Envoyer un message</Link>
             )}
+            {canShowInterest && <InterestButton tutorId={tutor.id} tutorFirstName={tutor.name.split(" ")[0]} alreadySent={interested} />}
           </div>
           <p className="mt-3 px-2 text-center text-xs text-earth-500">
             Vous payez en ligne en réservant (mobile money ou carte selon votre pays). Le tuteur confirme, puis le lien de visio apparaît dans votre tableau de bord.

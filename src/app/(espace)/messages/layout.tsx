@@ -1,0 +1,16 @@
+import { ConversationList } from "@/components/messages/ConversationList";
+import { MessagesShell } from "@/components/messages/MessagesShell";
+import { getCurrentUser } from "@/lib/auth";
+import { getInbox, getMessageContacts } from "@/lib/inbox";
+import { sendBookingReminders } from "@/lib/notifications";
+
+// The contact list stays on screen while moving from one conversation to another.
+export default async function MessagesLayout({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
+  // Each page sends signed-out visitors to the login page with the right return path.
+  if (!user) return children;
+  // Deliver any pending "booking left halfway" notification before listing.
+  await sendBookingReminders().catch((err) => console.error("Rappels de réservation", err));
+  const [inbox, contacts] = await Promise.all([getInbox(user._id), getMessageContacts(user._id, user.role)]);
+  return <MessagesShell list={<ConversationList initial={inbox} contacts={contacts} />}>{children}</MessagesShell>;
+}

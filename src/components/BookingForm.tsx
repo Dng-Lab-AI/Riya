@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { bookLesson } from "@/lib/actions/lessons";
-import { TIME_SLOTS } from "@/lib/constants";
+import { bookingStarted } from "@/lib/actions/notifications";
 import { METHODS, countryGroups, formatMoney, quoteFor } from "@/lib/payments/countries";
 import { SubmitButton, useKeepValuesForm } from "./client";
 import { FormAlert } from "./ui";
@@ -22,7 +22,8 @@ function toLocalDayKey(d: Date) {
 type BookingProps = {
   tutorId: string;
   languages: { slug: string; name: string }[];
-  busySlots: string[];
+  // Bookable start times (ISO), computed from the tutor's availability.
+  slots: string[];
   priceEur: number;
   defaultCountry: string;
   rates: Record<string, number>;
@@ -33,28 +34,40 @@ export function BookingForm(props: BookingProps) {
   return <BookingFormInner {...props} />;
 }
 
-function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCountry, rates }: BookingProps) {
+function BookingFormInner({ tutorId, languages, slots, priceEur, defaultCountry, rates }: BookingProps) {
   const { state, pending, onSubmit } = useKeepValuesForm(bookLesson.bind(null, tutorId));
+  // The tutor's free start times, grouped by day in the student's own time zone.
+  const byDay = useMemo(() => {
+    const map = new Map<string, { iso: string; time: string }[]>();
+    for (const iso of slots) {
+      const date = new Date(iso);
+      const key = toLocalDayKey(date);
+      map.set(key, [...(map.get(key) ?? []), { iso, time: date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) }]);
+    }
+    return map;
+  }, [slots]);
   const days = useMemo(() => {
     const today = new Date();
     return Array.from({ length: DAYS_AHEAD }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      return { key: toLocalDayKey(d), date: d };
+      return { key: toLocalDayKey(d), date: d, count: byDay.get(toLocalDayKey(d))?.length ?? 0 };
     });
-  }, []);
-  const [now] = useState(() => Date.now());
-  const [day, setDay] = useState(days[1].key);
+  }, [byDay]);
+  const [day, setDay] = useState(() => days.find((d) => d.count > 0)?.key ?? days[0].key);
   const [startsAt, setStartsAt] = useState("");
+  // Picking a slot starts a booking: if it is not finished, the tutor gets a reminder to reach out.
+  const reported = useRef(false);
+  const pick = (iso: string) => {
+    setStartsAt(iso);
+    if (!reported.current) {
+      reported.current = true;
+      bookingStarted(tutorId).catch(() => {});
+    }
+  };
   const [country, setCountry] = useState(defaultCountry);
   const quote = quoteFor(country, priceEur, rates);
   const total = formatMoney(quote.amount, quote.currency);
-
-  const busy = useMemo(() => new Set(busySlots.map((iso) => new Date(iso).getTime())), [busySlots]);
-  const slots = TIME_SLOTS.map((time) => {
-    const date = new Date(`${day}T${time}`);
-    const taken = busy.has(date.getTime()) || date.getTime() < now + 60 * 60 * 1000;
-    return { time, iso: date.toISOString(), taken };
-  });
+  const daySlots = byDay.get(day) ?? [];
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -78,8 +91,10 @@ function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCoun
             <button
               key={d.key}
               type="button"
+              disabled={d.count === 0}
+              title={d.count === 0 ? "Aucun créneau libre ce jour-là" : `${d.count} créneau${d.count > 1 ? "x" : ""} libre${d.count > 1 ? "s" : ""}`}
               onClick={() => { setDay(d.key); setStartsAt(""); }}
-              className={`flex w-14 shrink-0 flex-col items-center rounded-xl border px-2 py-2 text-xs transition ${
+              className={`flex w-14 shrink-0 flex-col items-center rounded-xl border px-2 py-2 text-xs transition disabled:cursor-not-allowed disabled:border-sand-200 disabled:bg-sand-100 disabled:text-earth-400 ${
                 d.key === day ? "border-clay-600 bg-clay-600 text-white" : "border-sand-300 bg-white hover:border-clay-500"
               }`}
             >
@@ -92,21 +107,26 @@ function BookingFormInner({ tutorId, languages, busySlots, priceEur, defaultCoun
 
       <div>
         <p className="label">Heure <span className="font-normal text-earth-500">(votre fuseau horaire)</span></p>
-        <div className="grid grid-cols-4 gap-2">
-          {slots.map((s) => (
-            <button
-              key={s.time}
-              type="button"
-              disabled={s.taken}
-              onClick={() => setStartsAt(s.iso)}
-              className={`rounded-lg border py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:border-sand-200 disabled:bg-sand-100 disabled:text-earth-400 disabled:line-through ${
-                startsAt === s.iso ? "border-forest-600 bg-forest-600 text-white" : "border-sand-300 bg-white hover:border-forest-500"
-              }`}
-            >
-              {s.time}
-            </button>
-          ))}
-        </div>
+        {slots.length === 0 ? (
+          <p className="rounded-xl bg-sand-50 p-3 text-sm text-earth-600">Ce tuteur n&apos;a aucun créneau libre dans les deux prochaines semaines. Écrivez-lui pour convenir d&apos;un horaire.</p>
+        ) : daySlots.length === 0 ? (
+          <p className="rounded-xl bg-sand-50 p-3 text-sm text-earth-600">Aucun créneau libre ce jour-là. Choisissez un autre jour.</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2">
+            {daySlots.map((s) => (
+              <button
+                key={s.iso}
+                type="button"
+                onClick={() => pick(s.iso)}
+                className={`rounded-lg border py-2 text-sm font-medium transition ${
+                  startsAt === s.iso ? "border-forest-600 bg-forest-600 text-white" : "border-sand-300 bg-white hover:border-forest-500"
+                }`}
+              >
+                {s.time}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

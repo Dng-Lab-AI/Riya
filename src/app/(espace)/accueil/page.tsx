@@ -88,7 +88,8 @@ export default async function TutorHomePage() {
   if (user.role !== "tutor") redirect("/tableau-de-bord");
 
   const [lessons, profile] = await Promise.all([getTutorLessons(user._id), getTutor(user.id)]);
-  const requests = lessons.filter((l) => l.status === "pending" && !hasStarted(l));
+  // Bookings waiting for the tutor (not the lessons they proposed, which wait for the student).
+  const requests = lessons.filter((l) => l.status === "pending" && !l.proposed_by_tutor && !hasStarted(l));
   const upNext = lessons.filter((l) => l.status === "confirmed" && notOverYet(l)).sort(byDateAsc);
   const waiting = lessons.filter(awaitsFeedback);
 
@@ -123,7 +124,7 @@ export default async function TutorHomePage() {
         <section>
           <div className="mb-4 flex items-baseline justify-between gap-4">
             <h2 className="font-display text-2xl font-semibold sm:text-3xl">À venir</h2>
-            <Link href="/tableau-de-bord" className="text-sm font-semibold underline underline-offset-4">Voir tout</Link>
+            <Link href="/calendrier" className="text-sm font-semibold underline underline-offset-4">Voir le calendrier</Link>
           </div>
           {upNext.length ? (
             <ul className="divide-y divide-sand-200 rounded-[1.75rem] border border-sand-200 bg-white">

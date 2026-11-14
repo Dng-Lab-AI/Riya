@@ -3,6 +3,7 @@
 import { Binary } from "mongodb";
 import { redirect } from "next/navigation";
 import { requireUser } from "../auth";
+import { availabilityTags } from "../availability";
 import { AVAILABILITY, SPECIALTIES } from "../constants";
 import { getDb } from "../db";
 import { hashPassword, verifyPassword } from "../password";
@@ -76,9 +77,13 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
   const allowedSpecialties = new Set<string>(SPECIALTIES.map((s) => s.value));
   const allowedAvailability = new Set<string>(AVAILABILITY.map((a) => a.value));
   const specialties = formData.getAll("specialties").map(String).filter((s) => allowedSpecialties.has(s));
-  const availability = formData.getAll("availability").map(String).filter((a) => allowedAvailability.has(a));
-
   const db = await getDb();
+  // Once the tutor sets their hours in the calendar, the availability tags follow that schedule.
+  const schedule = (await db.users.findOne({ _id: user._id }, { projection: { "tutor.schedule": 1 } }))?.tutor?.schedule;
+  const availability = schedule
+    ? availabilityTags(schedule.ranges)
+    : formData.getAll("availability").map(String).filter((a) => allowedAvailability.has(a));
+
   const slugs = await db.languages.distinct("slug");
   const languages = slugs
     .map((slug) => ({ slug, level: String(formData.get(`lang_${slug}`) ?? "") }))
@@ -89,7 +94,9 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
   if (!(rate >= 5 && rate <= 200)) return { error: "Le tarif doit être compris entre 5 et 200." };
   if (!(years >= 0 && years <= 60)) return { error: "Années d'expérience invalides." };
   if (languages.length === 0) return { error: "Choisissez au moins une langue enseignée." };
-  if (availability.length === 0) return { error: "Indiquez au moins un créneau de disponibilité." };
+  if (availability.length === 0) {
+    return { error: schedule ? "Ajoutez des disponibilités dans votre calendrier." : "Indiquez au moins un créneau de disponibilité." };
+  }
 
   const updated = await db.users.findOneAndUpdate(
     { _id: user._id },

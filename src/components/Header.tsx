@@ -18,10 +18,13 @@ const NAV = [
 export async function Header() {
   const user = await getCurrentUser();
   const unread = user ? await getUnreadCount(user._id) : 0;
+  // "Devenir tuteur" only speaks to visitors and students: tutors (and the team) already are.
+  const nav = NAV.filter((item) => item.href !== "/devenir-tuteur" || !user || user.role === "student");
   const accountLinks = user
     ? [
-        ...(user.role === "tutor" ? [{ href: "/accueil", label: "Accueil" }] : []),
+        ...(user.role === "tutor" ? [{ href: "/accueil", label: "Accueil" }, { href: "/calendrier", label: "Calendrier" }] : []),
         { href: "/tableau-de-bord", label: "Mes cours" },
+        ...(user.role === "student" ? [{ href: "/mes-tuteurs", label: "Mes tuteurs" }] : []),
         { href: "/progression", label: user.role === "tutor" ? "Mon évolution" : "Ma progression" },
         { href: "/messages", label: unread ? `Messages (${unread})` : "Messages" },
         { href: "/profil", label: "Mon profil" },
@@ -35,7 +38,7 @@ export async function Header() {
         <div className="flex items-center gap-6">
           <Link href="/" aria-label="Accueil Riya"><Logo /></Link>
           <nav className="hidden items-center gap-1 lg:flex">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link key={item.href} href={item.href} className="rounded-full px-3.5 py-2 text-sm font-medium text-earth-700 transition hover:bg-forest-800 hover:text-sand-50">
                 {item.label}
               </Link>
@@ -57,7 +60,7 @@ export async function Header() {
           )}
         </div>
 
-        <MobileMenu links={[...NAV, ...accountLinks]} signedIn={!!user}>
+        <MobileMenu links={[...nav, ...accountLinks]} signedIn={!!user}>
           {user && (
             <form action={logout}>
               <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left font-medium text-clay-700"><LogOut size={18} /> Se déconnecter</button>

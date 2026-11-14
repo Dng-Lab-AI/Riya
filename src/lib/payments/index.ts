@@ -35,16 +35,26 @@ export function isPaymentAvailable() {
   return activeProvider() !== null;
 }
 
-// Lessons that block their time slot: settled ones, and unpaid ones still within the hold.
+// Lessons that block their time slot: settled ones, unpaid ones still within the hold,
+// and lessons the tutor proposed from the calendar while the student has not answered.
 export function holdsSlot(): Filter<LessonDoc> {
   return {
     status: { $in: ["pending", "confirmed"] },
+    // A tutor's practice classroom never blocks a real booking.
+    demo: { $exists: false },
     $or: [
       { payment: { $exists: false } },
       { "payment.status": "paid" },
       { "payment.status": "pending", "payment.createdAt": { $gt: new Date(Date.now() - PAYMENT_HOLD_MINUTES * 60 * 1000) } },
+      { proposedBy: "tutor" },
     ],
   };
+}
+
+// A lesson proposed by the tutor is confirmed as soon as the student has paid for it.
+async function confirmPaidProposal(filter: Filter<LessonDoc>) {
+  const db = await getDb();
+  await db.lessons.updateOne({ ...filter, proposedBy: "tutor", status: "pending", "payment.status": "paid" }, { $set: { status: "confirmed" } });
 }
 
 export function isSettled(lesson: Pick<LessonDoc, "payment">) {
@@ -95,6 +105,7 @@ export async function confirmPayment(reference: string): Promise<LessonDoc | nul
       { _id: lesson._id, "payment.reference": reference, "payment.status": "pending" },
       { $set: { "payment.status": "paid", "payment.paidAt": new Date(), "payment.providerTxId": result.providerTxId, "payment.method": result.method } },
     );
+    await confirmPaidProposal({ _id: lesson._id });
   } else if (result?.status === "failed") {
     await db.lessons.updateOne({ _id: lesson._id, "payment.reference": reference, "payment.status": "pending" }, { $set: { "payment.status": "failed" } });
   }
@@ -107,6 +118,7 @@ export async function markDemoPaid(reference: string, method: string) {
     { "payment.reference": reference, "payment.provider": "demo", "payment.status": "pending" },
     { $set: { "payment.status": "paid", "payment.paidAt": new Date(), "payment.method": method } },
   );
+  await confirmPaidProposal({ "payment.reference": reference });
 }
 
 // Gives the student their money back. A failed refund is kept visible for the team to handle by hand.

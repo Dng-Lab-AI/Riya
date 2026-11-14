@@ -1,7 +1,8 @@
 import "server-only";
 import type { Filter } from "mongodb";
-import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type ObjectId, type UserDoc } from "./db";
-import { holdsSlot } from "./payments";
+import { DEMO_STUDENT_NAME } from "./constants";
+import { getDb, REAL_LESSON, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type NotificationKind, type ObjectId, type UserDoc } from "./db";
+import { bookableSlots } from "./availability";
 import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
 
@@ -36,6 +37,8 @@ export type TutorSummary = {
   years_experience: number;
   specialties: string[];
   availability: string[];
+  // Hours set in the calendar (the availability tags then follow them).
+  has_schedule: boolean;
   speaks: string;
   approved: boolean;
   rating: number | null;
@@ -62,6 +65,9 @@ export type Lesson = {
   payment: { status: LessonPayment["status"]; amount_label: string } | null;
   // The tutor wrote notes (key points, vocabulary or homework) for this lesson.
   has_notes: boolean;
+  // Scheduled by the tutor from the calendar (the student accepts it by paying).
+  proposed_by_tutor: boolean;
+  weekly: boolean;
 };
 
 const ACTIVE_TUTOR = { role: "tutor", status: "active", "tutor.approved": true } as const;
@@ -119,6 +125,7 @@ function toTutor(u: UserDoc, names: Map<string, string>): TutorSummary {
     years_experience: t.yearsExperience,
     specialties: t.specialties,
     availability: t.availability,
+    has_schedule: !!t.schedule,
     speaks: t.speaks,
     approved: t.approved,
     rating: t.ratingCount ? Math.round((t.ratingSum / t.ratingCount) * 10) / 10 : null,
@@ -201,22 +208,27 @@ export async function getTutorReviews(tutorId: string): Promise<Review[]> {
   });
 }
 
-// Start times already taken for a tutor, so the booking form can hide them.
-export async function getTutorBusySlots(tutorId: string): Promise<string[]> {
+// Start times a student can book over the next two weeks: the tutor's availability
+// (weekly schedule, extra slots, time off) minus the lessons already planned.
+export async function getTutorBookableSlots(tutorId: string): Promise<string[]> {
   const _id = toObjectId(tutorId);
   if (!_id) return [];
   const db = await getDb();
-  const lessons = await db.lessons.find({ tutorId: _id, startsAt: { $gt: new Date() }, ...holdsSlot() }).toArray();
-  return lessons.map((l) => l.startsAt.toISOString());
+  const tutor = await db.users.findOne({ _id, role: "tutor" }, { projection: { country: 1, tutor: 1 } });
+  return tutor ? bookableSlots(tutor) : [];
 }
 
 // ── Lessons ───────────────────────────────────────────────
 
 async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<Lesson[]> {
   const db = await getDb();
-  // Tutors only see a booking once it has been paid for.
+  // Tutors only see a booking once it has been paid for (their own proposals always).
   const lessons = await db.lessons
-    .find(role === "student" ? { studentId: userId } : { tutorId: userId, "payment.status": { $nin: ["pending", "failed"] } })
+    .find(
+      role === "student"
+        ? { studentId: userId, ...REAL_LESSON }
+        : { tutorId: userId, ...REAL_LESSON, $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] },
+    )
     .sort({ startsAt: -1 })
     .toArray();
   const otherIds = lessons.map((l) => (role === "student" ? l.tutorId : l.studentId));
@@ -244,6 +256,8 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
       review_rating: ratingByLesson.get(l._id.toHexString()) ?? null,
       payment: l.payment ? { status: l.payment.status, amount_label: formatMoney(l.payment.amount, l.payment.currency) } : null,
       has_notes: !!(l.notes && (l.notes.keyPoints || l.notes.vocabulary || l.notes.homework)),
+      proposed_by_tutor: l.proposedBy === "tutor",
+      weekly: !!l.seriesId,
     };
   });
 }
@@ -256,6 +270,15 @@ export async function getFavoriteTutors(userId: ObjectId): Promise<TutorSummary[
   const user = await db.users.findOne({ _id: userId }, { projection: { favorites: 1 } });
   if (!user?.favorites?.length) return [];
   const [docs, names] = await Promise.all([db.users.find({ _id: { $in: user.favorites }, ...ACTIVE_TUTOR }).toArray(), languageNames()]);
+  return docs.map((u) => toTutor(u, names));
+}
+
+// Public profiles of several tutors (those still teaching on Riya).
+export async function getTutorsByIds(ids: string[]): Promise<TutorSummary[]> {
+  const oids = ids.map(toObjectId).filter((id): id is ObjectId => !!id);
+  if (!oids.length) return [];
+  const db = await getDb();
+  const [docs, names] = await Promise.all([db.users.find({ _id: { $in: oids }, ...ACTIVE_TUTOR }).toArray(), languageNames()]);
   return docs.map((u) => toTutor(u, names));
 }
 
@@ -278,19 +301,32 @@ export async function getUserProfile(id: string): Promise<UserProfile | null> {
 
 // ── Messages ──────────────────────────────────────────────
 
-export type Conversation = { other_id: string; other_name: string; other_avatar: string; last_body: string; last_at: string; unread: number };
-export type Message = { id: string; sender_id: string; body: string; created_at: string };
+export type Conversation = {
+  other_id: string;
+  other_name: string;
+  other_avatar: string;
+  last_body: string;
+  // Set when the last item is an automatic notification (student interested, booking left halfway).
+  last_kind: NotificationKind | null;
+  last_at: string;
+  unread: number;
+};
+export type Message = { id: string; sender_id: string; body: string; created_at: string; kind: NotificationKind | null };
+
+// Notifications about a student are written "from" them but only shown to the tutor:
+// the student never sees them in their own conversations.
+const visibleTo = (userId: ObjectId): Filter<MessageDoc> => ({ $or: [{ senderId: userId, kind: { $exists: false } }, { recipientId: userId }] });
 
 export async function getConversations(userId: ObjectId): Promise<Conversation[]> {
   const db = await getDb();
   const rows = await db.messages
-    .aggregate<{ _id: ObjectId; last: { body: string; createdAt: Date }; unread: number }>([
-      { $match: { $or: [{ senderId: userId }, { recipientId: userId }] } },
+    .aggregate<{ _id: ObjectId; last: { body: string; createdAt: Date; kind?: NotificationKind }; unread: number }>([
+      { $match: visibleTo(userId) },
       { $sort: { _id: -1 } },
       {
         $group: {
           _id: { $cond: [{ $eq: ["$senderId", userId] }, "$recipientId", "$senderId"] },
-          last: { $first: { body: "$body", createdAt: "$createdAt" } },
+          last: { $first: { body: "$body", createdAt: "$createdAt", kind: "$kind" } },
           unread: { $sum: { $cond: [{ $and: [{ $eq: ["$recipientId", userId] }, { $eq: ["$readAt", null] }] }, 1, 0] } },
         },
       },
@@ -300,17 +336,22 @@ export async function getConversations(userId: ObjectId): Promise<Conversation[]
   const others = await usersById(rows.map((r) => r._id));
   return rows.map((r) => {
     const o = others.get(r._id.toHexString());
-    return { other_id: r._id.toHexString(), other_name: o?.name ?? "Ancien membre", other_avatar: o?.avatarUrl ?? "", last_body: r.last.body, last_at: r.last.createdAt.toISOString(), unread: r.unread };
+    return {
+      other_id: r._id.toHexString(), other_name: o?.name ?? "Ancien membre", other_avatar: o?.avatarUrl ?? "",
+      last_body: r.last.body, last_kind: r.last.kind ?? null, last_at: r.last.createdAt.toISOString(), unread: r.unread,
+    };
   });
 }
 
 // The whole thread, or only the messages after `afterId` (for live updates).
 export async function getThread(userId: ObjectId, otherId: ObjectId, afterId?: ObjectId | null): Promise<Message[]> {
   const db = await getDb();
-  const filter: Filter<MessageDoc> = { $or: [{ senderId: userId, recipientId: otherId }, { senderId: otherId, recipientId: userId }] };
+  const filter: Filter<MessageDoc> = {
+    $or: [{ senderId: userId, recipientId: otherId, kind: { $exists: false } }, { senderId: otherId, recipientId: userId }],
+  };
   if (afterId) filter._id = { $gt: afterId };
   const docs = await db.messages.find(filter).sort({ _id: 1 }).toArray();
-  return docs.map((m) => ({ id: m._id.toHexString(), sender_id: m.senderId.toHexString(), body: m.body, created_at: m.createdAt.toISOString() }));
+  return docs.map((m) => ({ id: m._id.toHexString(), sender_id: m.senderId.toHexString(), body: m.body, created_at: m.createdAt.toISOString(), kind: m.kind ?? null }));
 }
 
 export async function markThreadRead(userId: ObjectId, otherId: ObjectId) {
@@ -410,8 +451,8 @@ export async function getPlatformStats() {
     db.users.countDocuments({ role: "student" }),
     db.users.countDocuments({ role: "tutor", "tutor.approved": true }),
     db.users.countDocuments({ role: "tutor", "tutor.approved": false }),
-    db.lessons.countDocuments({ status: { $in: ["confirmed", "completed"] } }),
-    db.lessons.aggregate<{ total: number }>([{ $match: { status: "completed" } }, { $group: { _id: null, total: { $sum: "$price" } } }]).toArray(),
+    db.lessons.countDocuments({ status: { $in: ["confirmed", "completed"] }, ...REAL_LESSON }),
+    db.lessons.aggregate<{ total: number }>([{ $match: { status: "completed", ...REAL_LESSON } }, { $group: { _id: null, total: { $sum: "$price" } } }]).toArray(),
     db.topics.countDocuments(),
     db.languages.countDocuments(),
   ]);
@@ -444,6 +485,10 @@ export type ClassroomLesson = {
   role: "student" | "tutor";
   me: { id: string; name: string; avatar_url: string };
   other: { id: string; name: string; avatar_url: string };
+  // The tutor's practice classroom, with a fictional student.
+  demo: boolean;
+  // Minutes the tutor added at the end of the lesson.
+  extra_minutes: number;
 };
 
 // Returns the lesson only if the viewer is one of its two participants.
@@ -467,7 +512,9 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
     language_name: (await languageNames()).get(lesson.languageSlug) ?? lesson.languageSlug,
     role,
     me: card(viewerId),
-    other: card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    other: lesson.demo ? { id: lesson.studentId.toHexString(), name: DEMO_STUDENT_NAME, avatar_url: "" } : card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    demo: !!lesson.demo,
+    extra_minutes: lesson.extraMinutes ?? 0,
   };
 }
 
