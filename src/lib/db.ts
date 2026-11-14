@@ -51,6 +51,8 @@ export type UserDoc = {
   country: string;
   avatarUrl: string;
   favorites: ObjectId[];
+  // Conversations moved to the "Archivés" tab of the messages (by the other member's id).
+  archivedChats?: ObjectId[];
   tutor?: TutorProfile;
   // false until the owner clicks the link sent by e-mail; absent on older accounts (treated as verified).
   emailVerified?: boolean;

@@ -16,8 +16,24 @@ export async function sendMessage(recipientId: string, _prev: FormState, formDat
   const db = await getDb();
   if (!(await db.users.countDocuments({ _id: to, status: "active" }))) return { error: "Ce membre n'est plus disponible." };
   await db.messages.insertOne({ _id: new ObjectId(), senderId: user._id, recipientId: to, body, readAt: null, createdAt: new Date() });
+  // A new message brings an archived conversation back to the main list, on both sides.
+  await Promise.all([
+    db.users.updateOne({ _id: user._id }, { $pull: { archivedChats: to } }),
+    db.users.updateOne({ _id: to }, { $pull: { archivedChats: user._id } }),
+  ]);
   refreshAll();
   return { success: "sent" };
+}
+
+// "Archiver" / "Désarchiver" a conversation (only for the viewer).
+export async function toggleArchive(otherId: string) {
+  const user = await requireUser("/messages");
+  const other = toObjectId(otherId);
+  if (!other) return;
+  const db = await getDb();
+  const removed = await db.users.updateOne({ _id: user._id, archivedChats: other }, { $pull: { archivedChats: other } });
+  if (!removed.modifiedCount) await db.users.updateOne({ _id: user._id }, { $addToSet: { archivedChats: other } });
+  refreshAll();
 }
 
 export async function createTopic(_prev: FormState, formData: FormData): Promise<FormState> {

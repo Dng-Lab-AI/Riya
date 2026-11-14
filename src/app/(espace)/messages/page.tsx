@@ -1,58 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BellRing } from "lucide-react";
+import { MessagesSquare } from "lucide-react";
 import { EnableNotifications } from "@/components/EnableNotifications";
-import { Avatar, EmptyState, EspaceHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { timeAgo } from "@/lib/constants";
-import { sendBookingReminders } from "@/lib/notifications";
-import { getConversations } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Messages" };
 
+// Right column when no conversation is open (on a phone, only the contact list shows).
 export default async function MessagesPage() {
   const user = await requireUser("/messages");
-  // Deliver any pending "booking left halfway" notification before listing.
-  await sendBookingReminders().catch((err) => console.error("Rappels de réservation", err));
-  const conversations = await getConversations(user._id);
 
   return (
-    <>
-      <EspaceHeader title="Messages">Vos conversations avec les tuteurs et les élèves.</EspaceHeader>
-      <div className="max-w-3xl">
-        {conversations.length > 0 && <EnableNotifications />}
-        {conversations.length ? (
-          <ul className="card divide-y divide-sand-200 overflow-hidden">
-            {conversations.map((c) => (
-              <li key={c.other_id}>
-                <Link href={`/messages/${c.other_id}`} className="flex items-center gap-4 p-4 hover:bg-sand-50">
-                  <Avatar name={c.other_name} src={c.other_avatar} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className={`truncate ${c.unread ? "font-bold" : "font-semibold"}`}>{c.other_name}</span>
-                      <span className="shrink-0 text-xs text-earth-500">{timeAgo(c.last_at)}</span>
-                    </div>
-                    {c.last_kind ? (
-                      <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ochre-800">
-                        <BellRing size={14} className="shrink-0" />
-                        <span className="truncate">{c.last_kind === "interest" ? "S'intéresse à votre profil" : "Réservation non terminée"} · {c.last_body}</span>
-                      </p>
-                    ) : (
-                      <p className={`truncate text-sm ${c.unread ? "font-semibold text-earth-900" : "text-earth-600"}`}>{c.last_body}</p>
-                    )}
-                  </div>
-                  {c.unread > 0 && <span className="rounded-full bg-clay-600 px-2 py-0.5 text-xs font-bold text-white">{c.unread}</span>}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState title="Aucune conversation pour l'instant">
-            Contactez un tuteur depuis son profil pour poser vos questions avant de réserver.
-            <div className="mt-4"><Link href="/tuteurs" className="btn-primary">Parcourir les tuteurs</Link></div>
-          </EmptyState>
-        )}
-      </div>
-    </>
+    <div className="pattern-bogolan flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sand-100 text-clay-600"><MessagesSquare size={30} /></span>
+      <p className="font-display text-2xl font-semibold">Sélectionnez une conversation</p>
+      <p className="max-w-sm text-earth-600">
+        {user.role === "tutor"
+          ? "Choisissez un élève à gauche pour lire ses messages et voir où vous en êtes ensemble."
+          : "Choisissez un tuteur à gauche pour reprendre la conversation, ou contactez-en un nouveau."}
+      </p>
+      <EnableNotifications />
+      {user.role === "student" && <Link href="/tuteurs" className="btn-outline">Parcourir les tuteurs</Link>}
+    </div>
   );
 }

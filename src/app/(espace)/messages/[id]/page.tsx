@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, CalendarPlus, ExternalLink } from "lucide-react";
+import { LocalDateTime } from "@/components/client";
 import { LiveThread } from "@/components/LiveThread";
 import { Avatar } from "@/components/ui";
+import { toggleArchive } from "@/lib/actions/community";
 import { requireUser } from "@/lib/auth";
-import { toObjectId } from "@/lib/db";
+import { getDb, toObjectId } from "@/lib/db";
+import { getPairSummary } from "@/lib/inbox";
 import { getThread, getUserProfile, markThreadRead } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Conversation" };
+
+const ROLE_LABEL: Record<string, string> = { tutor: "Tuteur", admin: "Équipe Riya", student: "Élève" };
 
 export default async function ThreadPage({ params }: PageProps<"/messages/[id]">) {
   const { id } = await params;
@@ -18,24 +23,41 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
   if (!other || !otherId || other.id === user.id) notFound();
 
   await markThreadRead(user._id, otherId);
-  const messages = await getThread(user._id, otherId);
+  const [messages, summary, me] = await Promise.all([
+    getThread(user._id, otherId),
+    getPairSummary(user._id, otherId),
+    (await getDb()).users.findOne({ _id: user._id }, { projection: { archivedChats: 1 } }),
+  ]);
+  const archived = !!me?.archivedChats?.some((a) => a.equals(otherId));
 
   return (
-    <div className="flex max-w-3xl flex-col">
-      <div className="card flex items-center gap-3 p-4">
-        <Link href="/messages" className="btn-ghost" aria-label="Retour"><ArrowLeft size={18} /></Link>
+    <>
+      <header className="flex items-center gap-3 border-b border-sand-200 px-3 py-3 sm:px-4">
+        <Link href="/messages" className="btn-ghost px-2 lg:hidden" aria-label="Retour aux conversations"><ArrowLeft size={18} /></Link>
         <Avatar name={other.name} src={other.avatar_url} size={44} />
-        <div>
-          {other.role === "tutor" ? (
-            <Link href={`/tuteurs/${other.id}`} className="font-semibold hover:text-clay-700">{other.name}</Link>
-          ) : (
-            <p className="font-semibold">{other.name}</p>
-          )}
-          <p className="text-xs text-earth-500">{other.role === "tutor" ? "Tuteur" : other.role === "admin" ? "Équipe Riya" : "Élève"}{other.country && ` · ${other.country}`}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold">{other.name}</p>
+          <p className="truncate text-xs text-earth-500">
+            {ROLE_LABEL[other.role] ?? "Membre"}
+            {other.country && ` · ${other.country}`}
+            {summary.completed > 0 && ` · ${summary.completed} cours ensemble`}
+            {summary.next_at && <> · prochain cours <LocalDateTime iso={summary.next_at} /></>}
+          </p>
         </div>
-      </div>
+        {other.role === "tutor" && (
+          <Link href={`/tuteurs/${other.id}`} className="btn-ghost px-2" title="Voir le profil" aria-label="Voir le profil"><ExternalLink size={18} /></Link>
+        )}
+        {user.role === "tutor" && other.role === "student" && (
+          <Link href={`/calendrier?eleve=${other.id}`} className="btn-ghost px-2" title="Planifier un cours" aria-label="Planifier un cours"><CalendarPlus size={18} /></Link>
+        )}
+        <form action={toggleArchive.bind(null, other.id)}>
+          <button className="btn-ghost px-2" title={archived ? "Désarchiver" : "Archiver la conversation"} aria-label={archived ? "Désarchiver" : "Archiver la conversation"}>
+            {archived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+          </button>
+        </form>
+      </header>
 
       <LiveThread otherId={other.id} otherFirstName={other.name.split(" ")[0]} me={user.id} initial={messages} />
-    </div>
+    </>
   );
 }

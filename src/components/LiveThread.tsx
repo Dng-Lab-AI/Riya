@@ -52,8 +52,10 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherId]);
 
+  // Keep the latest message in view, scrolling only the conversation (not the whole page).
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const box = bottom.current?.parentElement;
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   // A ready-to-edit first message after a notification, so the tutor reaches out in one click.
@@ -83,8 +85,8 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
   };
 
   return (
-    <>
-      <div className="pattern-bogolan my-4 flex min-h-[40vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-sand-200 p-4" style={{ maxHeight: "60vh" }}>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="pattern-bogolan flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-sand-50 p-4">
         {messages.length === 0 && <p className="m-auto text-sm text-earth-500">Envoyez votre premier message à {otherFirstName}.</p>}
         {messages.map((m) => {
           const mine = m.sender_id === me;
@@ -123,7 +125,7 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
           e.preventDefault();
           send(e.currentTarget);
         }}
-        className="flex items-end gap-2"
+        className="flex items-end gap-2 border-t border-sand-200 bg-white p-3"
       >
         <div className="flex-1">
           <label htmlFor="body" className="sr-only">Votre message</label>
@@ -148,6 +150,6 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
           <Send size={18} />
         </button>
       </form>
-    </>
+    </div>
   );
 }
