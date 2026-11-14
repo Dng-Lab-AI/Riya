@@ -13,6 +13,7 @@ import { getTutor, getTutorBookableSlots, getTutorReviews, isFavorite } from "@/
 import { hasShownInterest } from "@/lib/notifications";
 import { toObjectId } from "@/lib/db";
 import { InterestButton } from "@/components/InterestButton";
+import { TutorVideoPlayer } from "@/components/TutorVideoPlayer";
 
 async function loadTutor(params: PageProps<"/tuteurs/[id]">["params"]) {
   return getTutor((await params).id);
@@ -76,6 +77,12 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
               </div>
             </div>
           </section>
+
+          {tutor.video && (
+            <section className="card p-3 sm:p-4">
+              <TutorVideoPlayer video={tutor.video} title={`Vidéo de présentation de ${tutor.name}`} />
+            </section>
+          )}
 
           <section className="card p-6 sm:p-8">
             <h2 className="font-display text-xl font-semibold">À propos</h2>

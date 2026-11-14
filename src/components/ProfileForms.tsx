@@ -179,7 +179,7 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
 }
 
 type TutorProfileProps = {
-  profile: { headline: string; about: string; hourly_rate: number; years_experience: number; specialties: string[]; availability: string[]; speaks: string; has_photo: boolean; has_schedule: boolean };
+  profile: { headline: string; about: string; hourly_rate: number; years_experience: number; specialties: string[]; availability: string[]; speaks: string; has_photo: boolean; has_schedule: boolean; has_video: boolean };
   languages: { slug: string; name: string }[];
   levels: Record<string, string>;
   commission: number;
@@ -198,6 +198,7 @@ function completion(form: HTMLFormElement | null, profile: TutorProfileProps["pr
     { label: "Au moins un créneau de disponibilité", done: all("availability", profile.availability).length > 0 },
     { label: "Au moins une spécialité", done: all("specialties", profile.specialties).length > 0 },
     { label: "Une photo de profil", done: profile.has_photo },
+    { label: "Une vidéo de présentation (conseillée)", done: profile.has_video },
   ];
 }
 

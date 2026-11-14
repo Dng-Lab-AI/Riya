@@ -129,6 +129,17 @@ export const LESSON_FILE_TYPES: Record<string, string> = {
 };
 export const LESSON_FILE_MAX_BYTES = 15 * 1024 * 1024;
 
+// Tutor presentation video: short, so it stays light to store and quick to watch.
+export const TUTOR_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+export const TUTOR_VIDEO_MAX_BYTES = 40 * 1024 * 1024;
+export const TUTOR_VIDEO_MAX_SECONDS = 120;
+
+// The 11-character id of a YouTube video, from any usual link (watch, youtu.be, shorts, embed).
+export function youtubeIdFrom(url: string): string | null {
+  const m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i.exec(url.trim());
+  return m ? m[1] : null;
+}
+
 export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} o`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
