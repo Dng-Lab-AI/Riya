@@ -21,6 +21,24 @@ export type TutorProfile = {
   ratingSum: number;
   ratingCount: number;
   lessonCount: number;
+  // Fixed weekly availability set in the calendar. Absent on older profiles: derived from `availability`.
+  schedule?: WeeklySchedule;
+};
+
+// Hours a tutor can be booked every week, on the clock of their own time zone.
+// day: 0 = Monday … 6 = Sunday; start / end: minutes after midnight (end may be 1440).
+export type WeeklyRange = { day: number; start: number; end: number };
+export type WeeklySchedule = { timeZone: string; ranges: WeeklyRange[]; updatedAt: Date };
+
+// One-off changes to the weekly schedule: time off (not bookable) or extra slots (bookable).
+export type CalendarBlockDoc = {
+  _id: ObjectId;
+  tutorId: ObjectId;
+  kind: "time_off" | "extra";
+  startsAt: Date;
+  endsAt: Date;
+  note: string;
+  createdAt: Date;
 };
 
 export type UserDoc = {
@@ -95,6 +113,10 @@ export type LessonDoc = {
   assistant?: { enabled: boolean; consent: Record<string, boolean> };
   // Absent on lessons booked before online payment existed (treated as settled).
   payment?: LessonPayment;
+  // Set when the tutor scheduled the lesson from the calendar: the student accepts (and pays) it.
+  proposedBy?: "tutor";
+  // Shared by the lessons of a weekly series.
+  seriesId?: ObjectId;
   createdAt: Date;
 };
 
@@ -195,6 +217,7 @@ export type Collections = {
   events: Collection<ClassEventDoc>;
   transcript: Collection<TranscriptDoc>;
   avatars: Collection<AvatarDoc>;
+  calendarBlocks: Collection<CalendarBlockDoc>;
   files: GridFSBucket;
   meta: Collection<{ _id: string; at: Date }>;
 };
@@ -218,6 +241,7 @@ function collectionsOf(db: Db): Collections {
     events: db.collection("classroom_events"),
     transcript: db.collection("classroom_transcript"),
     avatars: db.collection("avatars"),
+    calendarBlocks: db.collection("calendar_blocks"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     meta: db.collection("meta"),
   };
@@ -262,6 +286,7 @@ async function init(): Promise<Collections> {
     c.events.createIndex({ lessonId: 1, _id: 1 }),
     c.transcript.createIndex({ lessonId: 1, _id: 1 }),
     c.feedback.createIndex({ tutorId: 1, createdAt: -1 }),
+    c.calendarBlocks.createIndex({ tutorId: 1, startsAt: 1 }),
     client.db().collection("lesson_files.files").createIndex({ "metadata.lessonId": 1, uploadDate: 1 }),
   ]);
 

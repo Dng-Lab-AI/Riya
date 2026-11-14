@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { AVAILABILITY, SITE, SPECIALTIES, formatPrice, labelFor, timeAgo } from "@/lib/constants";
 import { fxRates, quoteLesson } from "@/lib/payments";
 import { LAUNCH_COUNTRY, findCountry, formatMoney, isKnownCountry } from "@/lib/payments/countries";
-import { getTutor, getTutorBusySlots, getTutorReviews, isFavorite } from "@/lib/queries";
+import { getTutor, getTutorBookableSlots, getTutorReviews, isFavorite } from "@/lib/queries";
 
 async function loadTutor(params: PageProps<"/tuteurs/[id]">["params"]) {
   return getTutor((await params).id);
@@ -30,7 +30,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
   const known = findCountry(user?.country).name;
   const payCountry = isKnownCountry(known) ? known : LAUNCH_COUNTRY;
   const localPrice = quoteLesson(payCountry, tutor.hourly_rate);
-  const [reviews, favorite, busySlots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBusySlots(tutor.id)]);
+  const [reviews, favorite, slots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBookableSlots(tutor.id)]);
 
   return (
     <div className="pattern-bogolan">
@@ -143,7 +143,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
               ) : !tutor.approved ? (
                 <p className="text-sm text-earth-600">Les réservations ouvriront après validation du profil.</p>
               ) : user ? (
-                <BookingForm tutorId={tutor.id} languages={tutor.languages} busySlots={busySlots} priceEur={tutor.hourly_rate} defaultCountry={payCountry} rates={fxRates()} />
+                <BookingForm tutorId={tutor.id} languages={tutor.languages} slots={slots} priceEur={tutor.hourly_rate} defaultCountry={payCountry} rates={fxRates()} />
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-earth-600">Connectez-vous pour choisir un créneau et réserver votre cours.</p>
