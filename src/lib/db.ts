@@ -23,7 +23,11 @@ export type TutorProfile = {
   lessonCount: number;
   // Fixed weekly availability set in the calendar. Absent on older profiles: derived from `availability`.
   schedule?: WeeklySchedule;
+  // Short presentation video shown on the public profile: a file uploaded to Riya, or a YouTube video.
+  video?: TutorVideo;
 };
+
+export type TutorVideo = { kind: "upload"; fileId: ObjectId; contentType: string } | { kind: "youtube"; youtubeId: string };
 
 // Hours a tutor can be booked every week, on the clock of their own time zone.
 // day: 0 = Monday … 6 = Sunday; start / end: minutes after midnight (end may be 1440).
@@ -255,6 +259,8 @@ export type Collections = {
   calendarBlocks: Collection<CalendarBlockDoc>;
   bookingIntents: Collection<BookingIntentDoc>;
   files: GridFSBucket;
+  // Tutors' presentation videos (metadata: { tutorId, contentType }).
+  videos: GridFSBucket;
   meta: Collection<{ _id: string; at: Date }>;
 };
 
@@ -280,6 +286,7 @@ function collectionsOf(db: Db): Collections {
     calendarBlocks: db.collection("calendar_blocks"),
     bookingIntents: db.collection("booking_intents"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
+    videos: new GridFSBucket(db, { bucketName: "tutor_videos" }),
     meta: db.collection("meta"),
   };
 }

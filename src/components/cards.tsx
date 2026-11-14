@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, BadgeCheck, MapPin, Users } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, MapPin, PlayCircle, Users } from "lucide-react";
 import { SPECIALTIES, formatPrice, labelFor, SITE } from "@/lib/constants";
 import { regionPhoto } from "@/lib/images";
 import type { Language, TutorSummary } from "@/lib/queries";
@@ -58,6 +58,11 @@ export function TutorCard({ tutor }: { tutor: TutorSummary }) {
         <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-earth-900">
           {formatPrice(tutor.hourly_rate)} <span className="font-normal text-earth-500">/ {SITE.lessonMinutes} min</span>
         </span>
+        {tutor.video && (
+          <Link href={`/tuteurs/${tutor.id}`} className="absolute left-4 top-4 flex items-center gap-1 rounded-full bg-earth-900/80 px-2.5 py-1 text-xs font-semibold text-sand-50 hover:bg-earth-900">
+            <PlayCircle size={14} /> Vidéo
+          </Link>
+        )}
       </div>
 
       <div className="relative -mt-10 flex flex-1 flex-col px-5 pb-5">

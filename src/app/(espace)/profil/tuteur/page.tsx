@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, Clock, ExternalLink } from "lucide-react";
 import { TutorProfileForm } from "@/components/ProfileForms";
-import { EspaceHeader } from "@/components/ui";
+import { TutorVideoField } from "@/components/TutorVideoField";
+import { EspaceHeader, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { first } from "@/lib/constants";
 import { commissionRate } from "@/lib/payments";
@@ -38,6 +39,14 @@ export default async function TutorProfilePage({ searchParams }: PageProps<"/pro
         </div>
       )}
 
+      <Panel
+        title="Vidéo de présentation"
+        description="Une courte vidéo (2 minutes maximum) affichée en haut de votre profil public."
+        className="mb-6"
+      >
+        <TutorVideoField video={tutor.video} />
+      </Panel>
+
       <TutorProfileForm
         profile={{
           headline: tutor.headline,
@@ -49,6 +58,7 @@ export default async function TutorProfilePage({ searchParams }: PageProps<"/pro
           speaks: tutor.speaks,
           has_photo: !!tutor.avatar_url,
           has_schedule: tutor.has_schedule,
+          has_video: !!tutor.video,
         }}
         languages={languages.map((l) => ({ slug: l.slug, name: l.name })).sort((a, b) => a.name.localeCompare(b.name, "fr"))}
         levels={Object.fromEntries(tutor.languages.map((l) => [l.slug, l.level]))}

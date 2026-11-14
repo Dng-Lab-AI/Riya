@@ -5,6 +5,7 @@ import { getDb, REAL_LESSON, toObjectId, type LanguageDoc, type LessonDoc, type 
 import { bookableSlots } from "./availability";
 import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
+import { videoView, type VideoView } from "./tutor-video";
 
 // Read-only data access used by Server Components. Everything returned here is
 // plain, serialisable data (string ids, ISO dates) so it can be passed to client components.
@@ -39,6 +40,8 @@ export type TutorSummary = {
   availability: string[];
   // Hours set in the calendar (the availability tags then follow them).
   has_schedule: boolean;
+  // Short presentation video (uploaded file or YouTube), null when the tutor has none.
+  video: VideoView;
   speaks: string;
   approved: boolean;
   rating: number | null;
@@ -126,6 +129,7 @@ function toTutor(u: UserDoc, names: Map<string, string>): TutorSummary {
     specialties: t.specialties,
     availability: t.availability,
     has_schedule: !!t.schedule,
+    video: videoView(t.video),
     speaks: t.speaks,
     approved: t.approved,
     rating: t.ratingCount ? Math.round((t.ratingSum / t.ratingCount) * 10) / 10 : null,
