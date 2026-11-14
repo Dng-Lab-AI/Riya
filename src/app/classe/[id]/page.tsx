@@ -31,7 +31,7 @@ export default async function ClassroomPage({ params }: PageProps<"/classe/[id]"
   const lesson = await getClassroomLesson(id, user._id);
   if (!lesson) notFound();
 
-  const timing = { startsAt: new Date(lesson.starts_at), durationMinutes: lesson.duration_minutes, status: lesson.status };
+  const timing = { startsAt: new Date(lesson.starts_at), durationMinutes: lesson.duration_minutes, extraMinutes: lesson.extra_minutes, status: lesson.status };
 
   if (lesson.status !== "confirmed") {
     return (
@@ -73,6 +73,7 @@ export default async function ClassroomPage({ params }: PageProps<"/classe/[id]"
       other={lesson.other}
       startsAt={lesson.starts_at}
       durationMinutes={lesson.duration_minutes}
+      initialExtraMinutes={lesson.extra_minutes}
       languageName={lesson.language_name}
       iceServers={iceServers()}
     />

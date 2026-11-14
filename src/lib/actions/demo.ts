@@ -24,7 +24,7 @@ export async function openDemoClassroom() {
         { _id },
         {
           $set: { startsAt: now, status: "confirmed", languageSlug, boardOpen: false, hands: {}, liveQuiz: null, quizzes: [], presentedFileId: null, presence: {} },
-          $unset: { assistant: "", notes: "", summary: "", summaryStatus: "" },
+          $unset: { assistant: "", notes: "", summary: "", summaryStatus: "", extraMinutes: "" },
         },
       ),
       db.classChat.deleteMany({ lessonId: _id }),

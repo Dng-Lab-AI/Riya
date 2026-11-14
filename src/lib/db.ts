@@ -123,6 +123,8 @@ export type LessonDoc = {
   abandonNotifiedAt?: Date;
   // Practice classroom of a tutor (fictional student): never listed, counted or billed.
   demo?: true;
+  // Minutes the tutor added at the end of the lesson from the classroom (MAX_EXTRA_MINUTES at most).
+  extraMinutes?: number;
   createdAt: Date;
 };
 

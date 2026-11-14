@@ -5,10 +5,10 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot, FolderOpen, Hand, ListChecks, Maximize2, Mic, MicOff, MessageSquare, Minimize2, MonitorUp, NotebookPen, PenLine, PhoneOff, Presentation,
-  Send, Smile, Subtitles, Trash2, Upload, Video, VideoOff, Wifi, WifiOff, X,
+  Send, Smile, Subtitles, Timer, Trash2, Upload, Video, VideoOff, Wifi, WifiOff, X,
 } from "lucide-react";
 import { updateLesson } from "@/lib/actions/lessons";
-import { LESSON_FILE_TYPES, REACTIONS, withDe } from "@/lib/constants";
+import { LESSON_FILE_TYPES, MAX_EXTRA_MINUTES, REACTIONS, withDe } from "@/lib/constants";
 import {
   AssistantPanel, Confetti, ConsentPrompt, QuizCard, QuizComposer, ReactionLayer, Whiteboard, makeConfetti, useSpeechSupported, useTranscription,
   type AssistantState, type ConfettiPiece, type FloatingReaction, type QuizState, type Stroke,
@@ -34,6 +34,8 @@ type Props = {
   other: Person;
   startsAt: string;
   durationMinutes: number;
+  // Minutes the tutor already added at the end of the lesson.
+  initialExtraMinutes: number;
   languageName: string;
   iceServers: RTCIceServer[];
   initialNotes: Notes | null;
@@ -48,6 +50,7 @@ type SyncResponse = {
   documents: SharedDocument[];
   presentedFileId: string | null;
   boardOpen: boolean;
+  extraMinutes: number;
   notes: Notes | null;
   hands: { me: boolean; other: boolean };
   quiz: QuizState | null;
@@ -65,6 +68,8 @@ type SyncResponse = {
 const POLL_MS = 1000;
 const NOTES_SAVE_DELAY_MS = 1200;
 const CAPTION_MS = 7000;
+// The end-of-lesson warning (and the tutor's "add time" buttons) shows this long before the end.
+const ENDING_SOON_MS = 5 * 60 * 1000;
 const EMPTY_NOTES: Notes = { keyPoints: "", vocabulary: "", homework: "" };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -173,7 +178,7 @@ function Badge({ count }: { count: number }) {
 }
 
 export function Classroom(props: Props) {
-  const { lessonId, role, me, other, startsAt, durationMinutes, languageName, iceServers, initialNotes, initialFeedback, aiAvailable, speechLangs } = props;
+  const { lessonId, role, me, other, startsAt, durationMinutes, initialExtraMinutes, languageName, iceServers, initialNotes, initialFeedback, aiAvailable, speechLangs } = props;
   const api = `/api/classe/${lessonId}`;
   const otherFirst = other.name.split(" ")[0];
 
@@ -211,6 +216,10 @@ export function Classroom(props: Props) {
   const [speechLang, setSpeechLang] = useState(speechLangs[0]?.code ?? "fr-FR");
   const [captionsOn, setCaptionsOn] = useState(true);
   const [caption, setCaption] = useState<{ text: string; at: number } | null>(null);
+  // Minutes added by the tutor at the end (MAX_EXTRA_MINUTES at most), kept in sync for both.
+  const [extraMinutes, setExtraMinutes] = useState(initialExtraMinutes);
+  const [extendError, setExtendError] = useState<string | null>(null);
+  const [endedByTime, setEndedByTime] = useState(false);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
@@ -391,6 +400,7 @@ export function Classroom(props: Props) {
             setPeerOnline(data.peerOnline);
             setPresentedId(data.presentedFileId);
             setBoardOpen(data.boardOpen);
+            setExtraMinutes(data.extraMinutes ?? 0);
             setHands(data.hands);
             setAssistant(data.assistant);
             applyQuiz(data.quiz);
@@ -590,9 +600,41 @@ export function Classroom(props: Props) {
     setPhase("ended");
   };
 
+  // The tutor adds a few minutes at the end of the lesson; the student's clock follows on the next poll.
+  const extend = async (minutes: number) => {
+    setExtendError(null);
+    const res = await postJson({ kind: "extend", minutes }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (!res?.ok) return setExtendError(data?.error ?? "Impossible d'ajouter du temps.");
+    setExtraMinutes(data.extraMinutes);
+    return true;
+  };
+
   const start = new Date(startsAt).getTime();
-  const end = start + durationMinutes * 60 * 1000;
+  const end = start + (durationMinutes + extraMinutes) * 60 * 1000;
+  const extraLeft = MAX_EXTRA_MINUTES - extraMinutes;
+  const extendChoices = [1, 2, 5].filter((m) => m <= extraLeft);
   const clock = now === null ? "" : now < start ? `Début dans ${formatDuration(start - now)}` : now < end ? `${formatDuration(end - now)} restantes` : `Dépassement ${formatDuration(now - end)}`;
+  const clockNote = extraMinutes ? ` · prolongé de ${extraMinutes} min` : "";
+  const remaining = now === null ? null : end - now;
+  const endingSoon = phase === "live" && remaining !== null && remaining > 0 && remaining <= ENDING_SOON_MS;
+
+  // The lesson ends for both at its end time (plus the minutes added by the tutor).
+  // Someone who joins after the end is not sent out straight away.
+  const leaveRef = useRef(leave);
+  useEffect(() => {
+    leaveRef.current = leave;
+  });
+  useEffect(() => {
+    if (phase !== "live") return;
+    const left = end - Date.now();
+    if (left <= 0) return;
+    const timer = setTimeout(() => {
+      setEndedByTime(true);
+      leaveRef.current();
+    }, left);
+    return () => clearTimeout(timer);
+  }, [phase, end]);
   const connected = connState === "connected";
   const stage = ownView ?? (boardOpen ? "board" : presentedId);
   const stageDoc = stage && stage !== "board" ? (documents.find((d) => d.id === stage) ?? null) : null;
@@ -605,7 +647,33 @@ export function Classroom(props: Props) {
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-forest-900 px-4 py-16 text-sand-50">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center">
           <p className="font-display text-4xl font-semibold">Asante sana !</p>
-          <p className="mt-2 text-sand-200">Vous avez quitté la salle de classe.</p>
+          <p className="mt-2 text-sand-200">
+            {endedByTime
+              ? `Le cours est terminé : les ${durationMinutes + extraMinutes} minutes prévues sont écoulées.`
+              : "Vous avez quitté la salle de classe."}
+          </p>
+          {endedByTime && role === "tutor" && extendChoices.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-white/10 p-4">
+              <p className="text-sm text-sand-200">Besoin de finir un exercice ? Ajoutez du temps (encore {extraLeft} min possible{extraLeft > 1 ? "s" : ""}) :</p>
+              <div className="mt-2 flex justify-center gap-2">
+                {extendChoices.map((m) => (
+                  <button
+                    key={m}
+                    onClick={async () => {
+                      if (await extend(m)) {
+                        setEndedByTime(false);
+                        setPhase("live");
+                      }
+                    }}
+                    className="btn bg-ochre-400 px-4 py-2 text-forest-900 hover:bg-ochre-300"
+                  >
+                    +{m} min
+                  </button>
+                ))}
+              </div>
+              {extendError && <p className="mt-2 text-sm text-clay-100">{extendError}</p>}
+            </div>
+          )}
           {role === "student" && (
             <div className="mt-8 rounded-2xl bg-white p-6 text-earth-900">
               <h2 className="mb-4 font-display text-xl font-semibold">Comment s&apos;est passée la séance ?</h2>
@@ -691,9 +759,30 @@ export function Classroom(props: Props) {
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">Cours {withDe(languageName)} avec {other.name}</p>
-          <p className="text-xs text-sand-300">{clock}</p>
+          <p className="text-xs text-sand-300">{clock}{clockNote}</p>
         </div>
         <div className="flex items-center gap-2">
+          {role === "tutor" && (
+            <details className="relative">
+              <summary
+                className={`flex cursor-pointer list-none items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${extraLeft > 0 ? "bg-white/10 hover:bg-white/20" : "cursor-not-allowed bg-white/5 text-sand-300"}`}
+                title={extraLeft > 0 ? `Prolonger le cours (encore ${extraLeft} min possible${extraLeft > 1 ? "s" : ""})` : `Le cours a déjà été prolongé de ${MAX_EXTRA_MINUTES} min, le maximum`}
+              >
+                <Timer size={14} /> {extraLeft > 0 ? "+ temps" : `+${MAX_EXTRA_MINUTES} min`}
+              </summary>
+              {extraLeft > 0 && (
+                <div className="absolute right-0 z-30 mt-2 w-56 rounded-2xl bg-white p-3 text-earth-900 shadow-xl">
+                  <p className="text-xs text-earth-600">Ajouter du temps à la fin du cours (encore {extraLeft} min possible{extraLeft > 1 ? "s" : ""}).</p>
+                  <div className="mt-2 flex gap-2">
+                    {extendChoices.map((m) => (
+                      <button key={m} onClick={() => extend(m)} className="btn flex-1 bg-forest-800 px-2 py-1.5 text-sand-50 hover:bg-forest-900">+{m} min</button>
+                    ))}
+                  </div>
+                  {extendError && <p className="mt-2 text-xs text-clay-700">{extendError}</p>}
+                </div>
+              )}
+            </details>
+          )}
           {assistant.enabled && (
             <span className="chip bg-ochre-400/20 text-ochre-100" title="Assistant IA actif">
               <Bot size={13} /> {transcribing ? "IA à l'écoute" : "Assistant IA"}
@@ -715,6 +804,24 @@ export function Classroom(props: Props) {
           )}
         </div>
       </div>
+
+      {endingSoon && (
+        <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 bg-ochre-400 px-4 py-2 text-sm font-semibold text-forest-900">
+          <span className="flex items-center gap-1.5"><Timer size={16} /> Le cours se termine dans {formatDuration(remaining!)}.</span>
+          {role === "tutor" &&
+            (extendChoices.length ? (
+              <span className="flex items-center gap-1.5">
+                Ajouter :
+                {extendChoices.map((m) => (
+                  <button key={m} onClick={() => extend(m)} className="rounded-full bg-forest-900 px-3 py-1 text-xs text-sand-50 hover:bg-forest-800">+{m} min</button>
+                ))}
+              </span>
+            ) : (
+              <span className="font-normal">Prolongation maximale atteinte ({MAX_EXTRA_MINUTES} min).</span>
+            ))}
+          {extendError && <span className="font-normal text-clay-800">{extendError}</span>}
+        </div>
+      )}
 
       <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1 p-3">

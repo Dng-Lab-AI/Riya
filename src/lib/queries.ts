@@ -487,6 +487,8 @@ export type ClassroomLesson = {
   other: { id: string; name: string; avatar_url: string };
   // The tutor's practice classroom, with a fictional student.
   demo: boolean;
+  // Minutes the tutor added at the end of the lesson.
+  extra_minutes: number;
 };
 
 // Returns the lesson only if the viewer is one of its two participants.
@@ -512,6 +514,7 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
     me: card(viewerId),
     other: lesson.demo ? { id: lesson.studentId.toHexString(), name: DEMO_STUDENT_NAME, avatar_url: "" } : card(role === "tutor" ? lesson.studentId : lesson.tutorId),
     demo: !!lesson.demo,
+    extra_minutes: lesson.extraMinutes ?? 0,
   };
 }
 

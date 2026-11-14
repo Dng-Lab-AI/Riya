@@ -147,6 +147,9 @@ export function parseVocabulary(text: string): { term: string; translation: stri
     });
 }
 
+// The lesson ends on its own at its end time; the tutor can extend it by this many minutes in total.
+export const MAX_EXTRA_MINUTES = 5;
+
 // Live classroom: quick reactions and whiteboard pen colours.
 export const REACTIONS = ["👏", "❤️", "😂", "🔥", "👍", "🎉", "🤔", "😮"];
 export const BOARD_COLORS = ["#22180f", "#b84e28", "#e09a1e", "#22623a", "#2563eb", "#ffffff"];
