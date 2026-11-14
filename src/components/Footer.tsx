@@ -38,7 +38,7 @@ function columnsFor(role: SessionUser["role"] | null): Column[] {
     return [
       LEARN,
       { title: "Enseigner", links: [{ href: "/devenir-tuteur", label: "Devenir tuteur" }] },
-      { title: "Mon compte", links: [{ href: "/tableau-de-bord", label: "Mes cours" }, { href: "/messages", label: "Messages" }, { href: "/progression", label: "Ma progression" }, { href: "/profil", label: "Mon profil" }] },
+      { title: "Mon compte", links: [{ href: "/tableau-de-bord", label: "Mes cours" }, { href: "/mes-tuteurs", label: "Mes tuteurs" }, { href: "/messages", label: "Messages" }, { href: "/progression", label: "Ma progression" }] },
     ];
   }
   return [

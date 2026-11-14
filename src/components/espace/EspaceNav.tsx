@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, CalendarRange, ExternalLink, GraduationCap, House, LogOut, MessageCircle, MonitorPlay, Settings, ShieldCheck, TrendingUp, UserRound, UsersRound, Wallet } from "lucide-react";
+import { CalendarDays, CalendarRange, ExternalLink, GraduationCap, Heart, House, LogOut, MessageCircle, MonitorPlay, Settings, ShieldCheck, TrendingUp, UserRound, UsersRound, Wallet } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 
 type Item = { href: string; label: string; icon: typeof CalendarDays; badge?: number };
@@ -14,6 +14,7 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
     {
       title: role === "tutor" ? "Mon enseignement" : "Mon apprentissage",
       // Tutors: the same order as their daily routine (home, messages, calendar, students, classroom, insights).
+      // Students: their lessons first, then their tutors and messages.
       items:
         role === "tutor"
           ? [
@@ -26,9 +27,10 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
               { href: "/progression", label: "Mon évolution", icon: TrendingUp },
             ]
           : [
-              { href: "/progression", label: "Ma progression", icon: TrendingUp },
               { href: "/tableau-de-bord", label: "Mes cours", icon: CalendarDays },
+              { href: "/mes-tuteurs", label: "Mes tuteurs", icon: Heart },
               { href: "/messages", label: "Messages", icon: MessageCircle, badge: unread },
+              { href: "/progression", label: "Ma progression", icon: TrendingUp },
             ],
     },
     {

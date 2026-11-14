@@ -24,6 +24,7 @@ export async function Header() {
     ? [
         ...(user.role === "tutor" ? [{ href: "/accueil", label: "Accueil" }, { href: "/calendrier", label: "Calendrier" }] : []),
         { href: "/tableau-de-bord", label: "Mes cours" },
+        ...(user.role === "student" ? [{ href: "/mes-tuteurs", label: "Mes tuteurs" }] : []),
         { href: "/progression", label: user.role === "tutor" ? "Mon évolution" : "Ma progression" },
         { href: "/messages", label: unread ? `Messages (${unread})` : "Messages" },
         { href: "/profil", label: "Mon profil" },
