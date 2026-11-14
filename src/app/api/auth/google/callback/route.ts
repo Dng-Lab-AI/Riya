@@ -56,5 +56,5 @@ export async function GET(request: Request) {
   await createSession(user._id);
   // New accounts first pick their country (payment methods) or fill in their tutor profile.
   if (created) redirect(user.role === "tutor" ? "/profil/tuteur?bienvenue=1" : "/profil?bienvenue=1");
-  redirect(saved.next || "/tableau-de-bord");
+  redirect(saved.next || (user.role === "tutor" ? "/accueil" : "/tableau-de-bord"));
 }
