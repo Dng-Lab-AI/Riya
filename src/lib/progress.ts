@@ -1,6 +1,6 @@
 import "server-only";
 import type { ObjectId } from "mongodb";
-import { getDb, type LessonDoc } from "./db";
+import { getDb, REAL_LESSON, type LessonDoc } from "./db";
 
 // Learning and teaching progress, computed from what already happens on Riya:
 // lessons, the AI recap, the tutor's notes, quizzes, the class transcript and feedback.
@@ -155,7 +155,7 @@ export type TutorProgress = {
 export async function getTutorProgress(tutorId: ObjectId, commission: number): Promise<TutorProgress> {
   const db = await getDb();
   const [all, reviews, feedback, names] = await Promise.all([
-    db.lessons.find({ tutorId, "payment.status": { $nin: ["pending", "failed"] } }).toArray(),
+    db.lessons.find({ tutorId, ...REAL_LESSON, "payment.status": { $nin: ["pending", "failed"] } }).toArray(),
     db.reviews.find({ tutorId }).toArray(),
     db.feedback.find({ tutorId }).toArray(),
     languageNames(),
