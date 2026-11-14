@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { toObjectId } from "@/lib/db";
+import { getInbox } from "@/lib/inbox";
 import { getThread, getUnreadCount, markThreadRead } from "@/lib/queries";
 
 // Polled by the live message badge (every few seconds, anywhere on the site) and by an
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
     if (request.nextUrl.searchParams.get("lu") === "1") await markThreadRead(user._id, other);
   }
 
+  // "liste=1": the contact list of the messages page, refreshed live.
+  const conversations = request.nextUrl.searchParams.get("liste") === "1" ? await getInbox(user._id) : undefined;
+
   const unread = await getUnreadCount(user._id);
-  return Response.json({ unread, ...(messages ? { messages } : {}) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ unread, ...(messages ? { messages } : {}), ...(conversations ? { conversations } : {}) }, { headers: { "Cache-Control": "no-store" } });
 }
