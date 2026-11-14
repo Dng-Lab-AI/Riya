@@ -95,6 +95,8 @@ export type LessonDoc = {
   assistant?: { enabled: boolean; consent: Record<string, boolean> };
   // Absent on lessons booked before online payment existed (treated as settled).
   payment?: LessonPayment;
+  // Minutes the tutor added at the end of the lesson from the classroom (MAX_EXTRA_MINUTES at most).
+  extraMinutes?: number;
   createdAt: Date;
 };
 

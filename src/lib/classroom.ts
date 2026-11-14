@@ -5,11 +5,11 @@ import { getDb, toObjectId, type LessonDoc, type ObjectId } from "./db";
 // and closes 30 minutes after its end. In development it never closes, so it can be tried at any time.
 const CLOSES_AFTER_MS = 30 * 60 * 1000;
 
-export function classroomClosesAt(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes">) {
-  return new Date(lesson.startsAt.getTime() + lesson.durationMinutes * 60 * 1000 + CLOSES_AFTER_MS);
+export function classroomClosesAt(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "extraMinutes">) {
+  return new Date(lesson.startsAt.getTime() + (lesson.durationMinutes + (lesson.extraMinutes ?? 0)) * 60 * 1000 + CLOSES_AFTER_MS);
 }
 
-export function isClassroomOpen(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "status">, now = Date.now()) {
+export function isClassroomOpen(lesson: Pick<LessonDoc, "startsAt" | "durationMinutes" | "status" | "extraMinutes">, now = Date.now()) {
   if (lesson.status !== "confirmed") return false;
   if (process.env.NODE_ENV !== "production") return true;
   return now <= classroomClosesAt(lesson).getTime();

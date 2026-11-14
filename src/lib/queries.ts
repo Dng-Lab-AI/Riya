@@ -444,6 +444,8 @@ export type ClassroomLesson = {
   role: "student" | "tutor";
   me: { id: string; name: string; avatar_url: string };
   other: { id: string; name: string; avatar_url: string };
+  // Minutes the tutor added at the end of the lesson.
+  extra_minutes: number;
 };
 
 // Returns the lesson only if the viewer is one of its two participants.
@@ -468,6 +470,7 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
     role,
     me: card(viewerId),
     other: card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    extra_minutes: lesson.extraMinutes ?? 0,
   };
 }
 
