@@ -259,6 +259,15 @@ export async function getFavoriteTutors(userId: ObjectId): Promise<TutorSummary[
   return docs.map((u) => toTutor(u, names));
 }
 
+// Public profiles of several tutors (those still teaching on Riya).
+export async function getTutorsByIds(ids: string[]): Promise<TutorSummary[]> {
+  const oids = ids.map(toObjectId).filter((id): id is ObjectId => !!id);
+  if (!oids.length) return [];
+  const db = await getDb();
+  const [docs, names] = await Promise.all([db.users.find({ _id: { $in: oids }, ...ACTIVE_TUTOR }).toArray(), languageNames()]);
+  return docs.map((u) => toTutor(u, names));
+}
+
 export async function isFavorite(userId: ObjectId, tutorId: string): Promise<boolean> {
   const _id = toObjectId(tutorId);
   if (!_id) return false;

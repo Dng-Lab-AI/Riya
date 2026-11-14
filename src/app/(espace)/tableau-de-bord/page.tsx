@@ -4,6 +4,7 @@ import { CalendarDays, CircleCheck, NotebookText, Star, Video, Wallet } from "lu
 import { TutorTile } from "@/components/cards";
 import { LocalDateTime, SubmitButton } from "@/components/client";
 import { ReviewForm } from "@/components/ReviewForm";
+import { StudentHighlights } from "@/components/student/StudentHighlights";
 import { Avatar, EmptyState, EspaceHeader, Stars } from "@/components/ui";
 import { payLesson, updateLesson } from "@/lib/actions/lessons";
 import { requireUser } from "@/lib/auth";
@@ -83,9 +84,9 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
   );
 }
 
-function LessonList({ title, lessons, as, empty }: { title: string; lessons: Lesson[]; as: "student" | "tutor"; empty: React.ReactNode }) {
+function LessonList({ title, lessons, as, empty, id }: { title: string; lessons: Lesson[]; as: "student" | "tutor"; empty: React.ReactNode; id?: string }) {
   return (
-    <section>
+    <section id={id} className="scroll-mt-24">
       <h2 className="mb-4 font-display text-2xl font-semibold">{title}</h2>
       <div className="space-y-3">{lessons.length ? lessons.map((l) => <LessonRow key={l.id} lesson={l} as={as} />) : empty}</div>
     </section>
@@ -212,7 +213,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
         {user.role === "admin" && (
           <p className="rounded-2xl bg-sand-100 p-5 text-earth-700">Vous êtes administrateur. <Link href="/admin" className="font-semibold text-clay-700 underline">Ouvrir l&apos;administration</Link></p>
         )}
+        <StudentHighlights lessons={lessons} />
         <LessonList
+          id="cours-a-venir"
           title="Cours à venir"
           lessons={upcoming}
           as="student"
@@ -221,11 +224,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
         <p className="-mt-7 text-sm text-earth-500">Annulation gratuite jusqu&apos;à {FREE_CANCELLATION_HOURS} h avant le cours. Remboursement complet si le tuteur refuse ou annule.</p>
         {favorites.length > 0 && (
           <section>
-            <h2 className="mb-4 font-display text-2xl font-semibold">Mes tuteurs favoris</h2>
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <h2 className="font-display text-2xl font-semibold">Mes tuteurs favoris</h2>
+              <Link href="/mes-tuteurs" className="text-sm font-semibold underline underline-offset-4">Tous mes tuteurs</Link>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{favorites.map((t) => <TutorTile key={t.id} tutor={t} />)}</div>
           </section>
         )}
-        <LessonList title="Cours passés" lessons={past} as="student" empty={<EmptyState title="Pas encore de cours passé" />} />
+        <LessonList id="cours-passes" title="Cours passés" lessons={past} as="student" empty={<EmptyState title="Pas encore de cours passé" />} />
       </div>
     </>
   );
