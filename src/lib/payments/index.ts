@@ -40,6 +40,8 @@ export function isPaymentAvailable() {
 export function holdsSlot(): Filter<LessonDoc> {
   return {
     status: { $in: ["pending", "confirmed"] },
+    // A tutor's practice classroom never blocks a real booking.
+    demo: { $exists: false },
     $or: [
       { payment: { $exists: false } },
       { "payment.status": "paid" },

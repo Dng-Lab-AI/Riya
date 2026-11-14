@@ -119,8 +119,13 @@ export type LessonDoc = {
   seriesId?: ObjectId;
   // When the tutor was told that the student left this booking unpaid.
   abandonNotifiedAt?: Date;
+  // Practice classroom of a tutor (fictional student): never listed, counted or billed.
+  demo?: true;
   createdAt: Date;
 };
+
+// Add to lesson queries so practice classrooms never show up as real lessons.
+export const REAL_LESSON = { demo: { $exists: false } } as const;
 
 // What the student paid for a lesson, in their own currency (the price stays in euros).
 export type LessonPayment = {

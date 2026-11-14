@@ -114,7 +114,8 @@ export async function updateLesson(lessonId: string, action: LessonAction) {
   if (!_id) return;
   const db = await getDb();
   const lesson = await db.lessons.findOne({ _id });
-  if (!lesson) return;
+  // A practice classroom is never accepted, closed or cancelled like a real lesson.
+  if (!lesson || lesson.demo) return;
 
   const isTutor = lesson.tutorId.equals(user._id);
   const isStudent = lesson.studentId.equals(user._id);

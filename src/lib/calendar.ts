@@ -1,7 +1,7 @@
 import "server-only";
 import type { Filter } from "mongodb";
 import { openIntervals, scheduleOf } from "./availability";
-import { getDb, type LessonDoc, type ObjectId, type WeeklyRange } from "./db";
+import { getDb, REAL_LESSON, type LessonDoc, type ObjectId, type WeeklyRange } from "./db";
 
 // Data of the tutor's weekly calendar. Everything is serialisable (ISO dates) for the client component.
 
@@ -35,8 +35,9 @@ export type TutorCalendarData = {
   languages: { slug: string; name: string }[];
 };
 
-// Lessons the tutor should see: paid bookings, older unpaid-free ones, and their own proposals.
-const VISIBLE_TO_TUTOR: Filter<LessonDoc> = { $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] };
+// Lessons the tutor should see: paid bookings, older unpaid-free ones, and their own proposals
+// (never the practice classroom).
+const VISIBLE_TO_TUTOR: Filter<LessonDoc> = { ...REAL_LESSON, $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] };
 
 // Students the tutor can schedule lessons with: anyone who booked them or wrote to them.
 export async function tutorStudentIds(tutorId: ObjectId): Promise<ObjectId[]> {

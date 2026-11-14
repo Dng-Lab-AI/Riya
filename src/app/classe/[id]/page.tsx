@@ -55,6 +55,13 @@ export default async function ClassroomPage({ params }: PageProps<"/classe/[id]"
   const [recap, feedback] = await Promise.all([getLessonRecap(room.lesson, user._id), getLessonFeedback(toObjectId(lesson.id)!)]);
 
   return (
+    <>
+    {lesson.demo && (
+      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-ochre-400 px-4 py-2 text-center text-sm font-semibold text-forest-900">
+        Salle de démonstration : {lesson.other.name.split(" ")[0]} est un élève fictif, il ne vous rejoindra pas. Testez librement tous les outils.
+        <Link href="/salle-de-demo" className="underline underline-offset-2">Quitter la démo</Link>
+      </p>
+    )}
     <Classroom
       initialNotes={recap.notes}
       aiAvailable={isAssistantAvailable()}
@@ -69,5 +76,6 @@ export default async function ClassroomPage({ params }: PageProps<"/classe/[id]"
       languageName={lesson.language_name}
       iceServers={iceServers()}
     />
+    </>
   );
 }

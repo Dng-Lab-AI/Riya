@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, CalendarRange, ExternalLink, GraduationCap, House, LogOut, MessageCircle, Settings, ShieldCheck, TrendingUp, UserRound, Wallet } from "lucide-react";
+import { CalendarDays, CalendarRange, ExternalLink, GraduationCap, House, LogOut, MessageCircle, MonitorPlay, Settings, ShieldCheck, TrendingUp, UserRound, Wallet } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 
 type Item = { href: string; label: string; icon: typeof CalendarDays; badge?: number };
@@ -19,6 +19,7 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
         { href: "/tableau-de-bord", label: "Mes cours", icon: CalendarDays },
         ...(role === "tutor" ? [{ href: "/calendrier", label: "Calendrier", icon: CalendarRange }] : []),
         { href: "/messages", label: "Messages", icon: MessageCircle, badge: unread },
+        ...(role === "tutor" ? [{ href: "/salle-de-demo", label: "Salle de démo", icon: MonitorPlay }] : []),
       ],
     },
     {

@@ -1,6 +1,7 @@
 import "server-only";
 import type { Filter } from "mongodb";
-import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type NotificationKind, type ObjectId, type UserDoc } from "./db";
+import { DEMO_STUDENT_NAME } from "./constants";
+import { getDb, REAL_LESSON, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type NotificationKind, type ObjectId, type UserDoc } from "./db";
 import { bookableSlots } from "./availability";
 import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
@@ -223,7 +224,11 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
   const db = await getDb();
   // Tutors only see a booking once it has been paid for (their own proposals always).
   const lessons = await db.lessons
-    .find(role === "student" ? { studentId: userId } : { tutorId: userId, $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] })
+    .find(
+      role === "student"
+        ? { studentId: userId, ...REAL_LESSON }
+        : { tutorId: userId, ...REAL_LESSON, $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] },
+    )
     .sort({ startsAt: -1 })
     .toArray();
   const otherIds = lessons.map((l) => (role === "student" ? l.tutorId : l.studentId));
@@ -437,8 +442,8 @@ export async function getPlatformStats() {
     db.users.countDocuments({ role: "student" }),
     db.users.countDocuments({ role: "tutor", "tutor.approved": true }),
     db.users.countDocuments({ role: "tutor", "tutor.approved": false }),
-    db.lessons.countDocuments({ status: { $in: ["confirmed", "completed"] } }),
-    db.lessons.aggregate<{ total: number }>([{ $match: { status: "completed" } }, { $group: { _id: null, total: { $sum: "$price" } } }]).toArray(),
+    db.lessons.countDocuments({ status: { $in: ["confirmed", "completed"] }, ...REAL_LESSON }),
+    db.lessons.aggregate<{ total: number }>([{ $match: { status: "completed", ...REAL_LESSON } }, { $group: { _id: null, total: { $sum: "$price" } } }]).toArray(),
     db.topics.countDocuments(),
     db.languages.countDocuments(),
   ]);
@@ -471,6 +476,8 @@ export type ClassroomLesson = {
   role: "student" | "tutor";
   me: { id: string; name: string; avatar_url: string };
   other: { id: string; name: string; avatar_url: string };
+  // The tutor's practice classroom, with a fictional student.
+  demo: boolean;
 };
 
 // Returns the lesson only if the viewer is one of its two participants.
@@ -494,7 +501,8 @@ export async function getClassroomLesson(lessonId: string, viewerId: ObjectId): 
     language_name: (await languageNames()).get(lesson.languageSlug) ?? lesson.languageSlug,
     role,
     me: card(viewerId),
-    other: card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    other: lesson.demo ? { id: lesson.studentId.toHexString(), name: DEMO_STUDENT_NAME, avatar_url: "" } : card(role === "tutor" ? lesson.studentId : lesson.tutorId),
+    demo: !!lesson.demo,
   };
 }
 
