@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BellRing } from "lucide-react";
 import { EnableNotifications } from "@/components/EnableNotifications";
 import { Avatar, EmptyState, EspaceHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/constants";
+import { sendBookingReminders } from "@/lib/notifications";
 import { getConversations } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Messages" };
 
 export default async function MessagesPage() {
   const user = await requireUser("/messages");
+  // Deliver any pending "booking left halfway" notification before listing.
+  await sendBookingReminders().catch((err) => console.error("Rappels de réservation", err));
   const conversations = await getConversations(user._id);
 
   return (
@@ -28,7 +32,14 @@ export default async function MessagesPage() {
                       <span className={`truncate ${c.unread ? "font-bold" : "font-semibold"}`}>{c.other_name}</span>
                       <span className="shrink-0 text-xs text-earth-500">{timeAgo(c.last_at)}</span>
                     </div>
-                    <p className={`truncate text-sm ${c.unread ? "font-semibold text-earth-900" : "text-earth-600"}`}>{c.last_body}</p>
+                    {c.last_kind ? (
+                      <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ochre-800">
+                        <BellRing size={14} className="shrink-0" />
+                        <span className="truncate">{c.last_kind === "interest" ? "S'intéresse à votre profil" : "Réservation non terminée"} · {c.last_body}</span>
+                      </p>
+                    ) : (
+                      <p className={`truncate text-sm ${c.unread ? "font-semibold text-earth-900" : "text-earth-600"}`}>{c.last_body}</p>
+                    )}
                   </div>
                   {c.unread > 0 && <span className="rounded-full bg-clay-600 px-2 py-0.5 text-xs font-bold text-white">{c.unread}</span>}
                 </Link>

@@ -10,6 +10,9 @@ import { AVAILABILITY, SITE, SPECIALTIES, formatPrice, labelFor, timeAgo } from 
 import { fxRates, quoteLesson } from "@/lib/payments";
 import { LAUNCH_COUNTRY, findCountry, formatMoney, isKnownCountry } from "@/lib/payments/countries";
 import { getTutor, getTutorBookableSlots, getTutorReviews, isFavorite } from "@/lib/queries";
+import { hasShownInterest } from "@/lib/notifications";
+import { toObjectId } from "@/lib/db";
+import { InterestButton } from "@/components/InterestButton";
 
 async function loadTutor(params: PageProps<"/tuteurs/[id]">["params"]) {
   return getTutor((await params).id);
@@ -31,6 +34,9 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
   const payCountry = isKnownCountry(known) ? known : LAUNCH_COUNTRY;
   const localPrice = quoteLesson(payCountry, tutor.hourly_rate);
   const [reviews, favorite, slots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBookableSlots(tutor.id)]);
+  // Students can tell the tutor they are interested, so the tutor can reach out first.
+  const canShowInterest = user?.role === "student" && !isSelf && tutor.approved;
+  const interested = canShowInterest ? await hasShownInterest(user._id, toObjectId(tutor.id)!) : false;
 
   return (
     <div className="pattern-bogolan">
@@ -155,6 +161,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
             {user && !isSelf && (
               <Link href={`/messages/${tutor.id}`} className="btn-outline mt-3 w-full"><MessageCircle size={16} /> Envoyer un message</Link>
             )}
+            {canShowInterest && <InterestButton tutorId={tutor.id} tutorFirstName={tutor.name.split(" ")[0]} alreadySent={interested} />}
           </div>
           <p className="mt-3 px-2 text-center text-xs text-earth-500">
             Vous payez en ligne en réservant (mobile money ou carte selon votre pays). Le tuteur confirme, puis le lien de visio apparaît dans votre tableau de bord.
