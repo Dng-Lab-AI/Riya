@@ -60,6 +60,8 @@ export type Lesson = {
   review_rating: number | null;
   // What the student paid; null for lessons booked before online payment.
   payment: { status: LessonPayment["status"]; amount_label: string } | null;
+  // The tutor wrote notes (key points, vocabulary or homework) for this lesson.
+  has_notes: boolean;
 };
 
 const ACTIVE_TUTOR = { role: "tutor", status: "active", "tutor.approved": true } as const;
@@ -241,6 +243,7 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
       other_avatar: other?.avatarUrl ?? "",
       review_rating: ratingByLesson.get(l._id.toHexString()) ?? null,
       payment: l.payment ? { status: l.payment.status, amount_label: formatMoney(l.payment.amount, l.payment.currency) } : null,
+      has_notes: !!(l.notes && (l.notes.keyPoints || l.notes.vocabulary || l.notes.homework)),
     };
   });
 }

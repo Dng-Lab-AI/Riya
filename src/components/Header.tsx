@@ -20,6 +20,7 @@ export async function Header() {
   const unread = user ? await getUnreadCount(user._id) : 0;
   const accountLinks = user
     ? [
+        ...(user.role === "tutor" ? [{ href: "/accueil", label: "Accueil" }] : []),
         { href: "/tableau-de-bord", label: "Mes cours" },
         { href: "/progression", label: user.role === "tutor" ? "Mon évolution" : "Ma progression" },
         { href: "/messages", label: unread ? `Messages (${unread})` : "Messages" },

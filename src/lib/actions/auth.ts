@@ -92,7 +92,8 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   }
 
   await createSession(user._id);
-  redirect(safeRedirectPath(formData.get("suite"), "/tableau-de-bord"));
+  // Tutors land on their home page, students on their lessons.
+  redirect(safeRedirectPath(formData.get("suite"), user.role === "tutor" ? "/accueil" : "/tableau-de-bord"));
 }
 
 export async function resendVerification(_prev: FormState, formData: FormData): Promise<FormState> {
