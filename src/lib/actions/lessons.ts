@@ -3,9 +3,11 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireUser } from "../auth";
+import { busyIntervals, isSlotBookable, lessonInterval, MIN_NOTICE_MS } from "../availability";
 import { getDb, ObjectId, toObjectId, type LessonDoc } from "../db";
-import { isKnownCountry } from "../payments/countries";
-import { FREE_CANCELLATION_HOURS, holdsSlot, isPaymentAvailable, isSettled, quoteLesson, refundLesson, startCheckout } from "../payments";
+import { LAUNCH_COUNTRY, isKnownCountry } from "../payments/countries";
+import { FREE_CANCELLATION_HOURS, isPaymentAvailable, isSettled, quoteLesson, refundLesson, startCheckout } from "../payments";
+import { overlaps } from "../timezone";
 import { generateLessonSummary, isSummaryAvailable } from "../summary";
 import { int, refreshAll, text, type FormState } from "./shared";
 
@@ -29,8 +31,8 @@ export async function bookLesson(tutorId: string, _prev: FormState, formData: Fo
   const tutor = await db.users.findOne({ _id: tutorOid, role: "tutor", status: "active", "tutor.approved": true, "tutor.languages.slug": languageSlug });
   if (!tutor?.tutor) return { error: "Ce tuteur n'enseigne pas cette langue." };
 
-  const clash = await db.lessons.findOne({ tutorId: tutorOid, startsAt, ...holdsSlot() });
-  if (clash) return { error: "Ce créneau vient d'être réservé. Choisissez-en un autre." };
+  // The slot must be within the tutor's availability and not overlap another lesson.
+  if (!(await isSlotBookable(tutor, startsAt))) return { error: "Ce créneau n'est plus disponible. Choisissez-en un autre." };
 
   const lesson: LessonDoc = {
     _id: new ObjectId(), studentId: user._id, tutorId: tutorOid, languageSlug, startsAt, durationMinutes: 50,
@@ -62,14 +64,42 @@ export async function payLesson(lessonId: string) {
   if (!lesson?.payment) return;
 
   const tutor = await db.users.findOne({ _id: lesson.tutorId });
-  const taken = await db.lessons.findOne({ _id: { $ne: _id }, tutorId: lesson.tutorId, startsAt: lesson.startsAt, ...holdsSlot() });
-  if (!tutor || taken || lesson.startsAt.getTime() < Date.now() + 60 * 60 * 1000) {
+  if (!tutor || (await slotTaken(lesson))) {
     await db.lessons.updateOne({ _id }, { $set: { status: "cancelled" } });
     refreshAll();
     redirect("/tableau-de-bord?creneau=perdu");
   }
 
   const checkoutUrl = await startCheckout(lesson, user, quoteLesson(lesson.payment.country, lesson.price), `Cours avec ${tutor.name}`);
+  redirect(checkoutUrl);
+}
+
+// Too late to book, or another lesson of the tutor now overlaps it.
+async function slotTaken(lesson: LessonDoc) {
+  if (lesson.startsAt.getTime() < Date.now() + MIN_NOTICE_MS) return true;
+  const [start, end] = lessonInterval(lesson);
+  const busy = await busyIntervals({ tutorId: lesson.tutorId }, new Date(start), new Date(end), lesson._id);
+  return busy.some((b) => overlaps([start, end], b));
+}
+
+// The student accepts a lesson the tutor scheduled for them, and pays for it.
+export async function acceptProposal(lessonId: string) {
+  const user = await requireUser("/tableau-de-bord");
+  const _id = toObjectId(lessonId);
+  if (!_id) return;
+  const db = await getDb();
+  const lesson = await db.lessons.findOne({ _id, studentId: user._id, proposedBy: "tutor", status: "pending" });
+  if (!lesson || lesson.payment?.status === "paid") return;
+
+  const tutor = await db.users.findOne({ _id: lesson.tutorId, status: "active" });
+  if (!tutor || (await slotTaken(lesson))) {
+    await db.lessons.updateOne({ _id }, { $set: { status: "cancelled" } });
+    refreshAll();
+    redirect("/tableau-de-bord?creneau=perdu");
+  }
+
+  const country = lesson.payment?.country ?? (isKnownCountry(user.country) ? user.country : LAUNCH_COUNTRY);
+  const checkoutUrl = await startCheckout(lesson, user, quoteLesson(country, lesson.price), `Cours avec ${tutor.name}`);
   redirect(checkoutUrl);
 }
 
@@ -89,9 +119,12 @@ export async function updateLesson(lessonId: string, action: LessonAction) {
   // The status in the filter guards against two clicks racing each other.
   const move = (from: string[], to: typeof lesson.status) => db.lessons.updateOne({ _id, status: { $in: from as (typeof lesson.status)[] } }, { $set: { status: to } });
 
-  if (action === "confirm" && isTutor && isSettled(lesson)) {
+  // A lesson the tutor proposed is confirmed by the student's payment, not by the tutor.
+  const proposal = lesson.proposedBy === "tutor";
+
+  if (action === "confirm" && isTutor && !proposal && isSettled(lesson)) {
     await move(["pending"], "confirmed");
-  } else if (action === "decline" && isTutor) {
+  } else if (action === "decline" && (isTutor || (isStudent && proposal))) {
     const { modifiedCount } = await move(["pending"], "cancelled");
     if (modifiedCount) await refundLesson(lesson);
   } else if (action === "complete" && isTutor && started) {

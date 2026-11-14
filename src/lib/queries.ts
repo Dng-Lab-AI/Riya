@@ -1,7 +1,7 @@
 import "server-only";
 import type { Filter } from "mongodb";
 import { getDb, toObjectId, type LanguageDoc, type LessonDoc, type LessonPayment, type MessageDoc, type ObjectId, type UserDoc } from "./db";
-import { holdsSlot } from "./payments";
+import { bookableSlots } from "./availability";
 import { formatMoney } from "./payments/countries";
 import { listLessonFiles, type LessonFile } from "./documents";
 
@@ -36,6 +36,8 @@ export type TutorSummary = {
   years_experience: number;
   specialties: string[];
   availability: string[];
+  // Hours set in the calendar (the availability tags then follow them).
+  has_schedule: boolean;
   speaks: string;
   approved: boolean;
   rating: number | null;
@@ -62,6 +64,9 @@ export type Lesson = {
   payment: { status: LessonPayment["status"]; amount_label: string } | null;
   // The tutor wrote notes (key points, vocabulary or homework) for this lesson.
   has_notes: boolean;
+  // Scheduled by the tutor from the calendar (the student accepts it by paying).
+  proposed_by_tutor: boolean;
+  weekly: boolean;
 };
 
 const ACTIVE_TUTOR = { role: "tutor", status: "active", "tutor.approved": true } as const;
@@ -119,6 +124,7 @@ function toTutor(u: UserDoc, names: Map<string, string>): TutorSummary {
     years_experience: t.yearsExperience,
     specialties: t.specialties,
     availability: t.availability,
+    has_schedule: !!t.schedule,
     speaks: t.speaks,
     approved: t.approved,
     rating: t.ratingCount ? Math.round((t.ratingSum / t.ratingCount) * 10) / 10 : null,
@@ -201,22 +207,23 @@ export async function getTutorReviews(tutorId: string): Promise<Review[]> {
   });
 }
 
-// Start times already taken for a tutor, so the booking form can hide them.
-export async function getTutorBusySlots(tutorId: string): Promise<string[]> {
+// Start times a student can book over the next two weeks: the tutor's availability
+// (weekly schedule, extra slots, time off) minus the lessons already planned.
+export async function getTutorBookableSlots(tutorId: string): Promise<string[]> {
   const _id = toObjectId(tutorId);
   if (!_id) return [];
   const db = await getDb();
-  const lessons = await db.lessons.find({ tutorId: _id, startsAt: { $gt: new Date() }, ...holdsSlot() }).toArray();
-  return lessons.map((l) => l.startsAt.toISOString());
+  const tutor = await db.users.findOne({ _id, role: "tutor" }, { projection: { country: 1, tutor: 1 } });
+  return tutor ? bookableSlots(tutor) : [];
 }
 
 // ── Lessons ───────────────────────────────────────────────
 
 async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<Lesson[]> {
   const db = await getDb();
-  // Tutors only see a booking once it has been paid for.
+  // Tutors only see a booking once it has been paid for (their own proposals always).
   const lessons = await db.lessons
-    .find(role === "student" ? { studentId: userId } : { tutorId: userId, "payment.status": { $nin: ["pending", "failed"] } })
+    .find(role === "student" ? { studentId: userId } : { tutorId: userId, $or: [{ "payment.status": { $nin: ["pending", "failed"] } }, { proposedBy: "tutor" }] })
     .sort({ startsAt: -1 })
     .toArray();
   const otherIds = lessons.map((l) => (role === "student" ? l.tutorId : l.studentId));
@@ -244,6 +251,8 @@ async function lessonsFor(role: "student" | "tutor", userId: ObjectId): Promise<
       review_rating: ratingByLesson.get(l._id.toHexString()) ?? null,
       payment: l.payment ? { status: l.payment.status, amount_label: formatMoney(l.payment.amount, l.payment.currency) } : null,
       has_notes: !!(l.notes && (l.notes.keyPoints || l.notes.vocabulary || l.notes.homework)),
+      proposed_by_tutor: l.proposedBy === "tutor",
+      weekly: !!l.seriesId,
     };
   });
 }

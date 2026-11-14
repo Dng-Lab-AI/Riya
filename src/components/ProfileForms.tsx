@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { Camera, Check, Circle, Loader2, Save, Trash2, Upload } from "lucide-react";
 import { changePassword, removeAvatar, updateAccount, updateTutorProfile, uploadAvatar, type AvatarResult } from "@/lib/actions/profile";
 import { AVAILABILITY, SPECIALTIES } from "@/lib/constants";
@@ -178,7 +179,7 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
 }
 
 type TutorProfileProps = {
-  profile: { headline: string; about: string; hourly_rate: number; years_experience: number; specialties: string[]; availability: string[]; speaks: string; has_photo: boolean };
+  profile: { headline: string; about: string; hourly_rate: number; years_experience: number; specialties: string[]; availability: string[]; speaks: string; has_photo: boolean; has_schedule: boolean };
   languages: { slug: string; name: string }[];
   levels: Record<string, string>;
   commission: number;
@@ -272,7 +273,28 @@ export function TutorProfileForm({ profile, languages, levels, commission }: Tut
           <p className="label">Spécialités</p>
           <ToggleGroup name="specialties" options={SPECIALTIES} selected={profile.specialties} />
           <p className="label mt-5">Disponibilités</p>
-          <ToggleGroup name="availability" options={AVAILABILITY} selected={profile.availability} />
+          {profile.has_schedule ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {profile.availability.map((a) => (
+                  <span key={a} className="rounded-full bg-forest-800 px-3.5 py-2 text-sm font-medium text-sand-50">
+                    <input type="hidden" name="availability" value={a} />
+                    {AVAILABILITY.find((o) => o.value === a)?.label ?? a}
+                  </span>
+                ))}
+              </div>
+              <p className="text-sm text-earth-600">
+                Calculées à partir de vos horaires hebdomadaires. <Link href="/calendrier" className="font-semibold text-clay-700 underline">Modifier dans le calendrier</Link>
+              </p>
+            </div>
+          ) : (
+            <>
+              <ToggleGroup name="availability" options={AVAILABILITY} selected={profile.availability} />
+              <p className="mt-2 text-sm text-earth-600">
+                Pour choisir vos horaires précis, jour par jour, utilisez <Link href="/calendrier" className="font-semibold text-clay-700 underline">votre calendrier</Link>.
+              </p>
+            </>
+          )}
         </Panel>
 
         <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-earth-900/10 bg-white/95 p-3 pl-5 shadow-lg backdrop-blur">

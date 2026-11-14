@@ -5,7 +5,7 @@ import { TutorTile } from "@/components/cards";
 import { LocalDateTime, SubmitButton } from "@/components/client";
 import { ReviewForm } from "@/components/ReviewForm";
 import { Avatar, EmptyState, EspaceHeader, Stars } from "@/components/ui";
-import { payLesson, updateLesson } from "@/lib/actions/lessons";
+import { acceptProposal, payLesson, updateLesson } from "@/lib/actions/lessons";
 import { requireUser } from "@/lib/auth";
 import { LESSON_STATUS, first, formatPrice } from "@/lib/constants";
 import { FREE_CANCELLATION_HOURS, commissionRate } from "@/lib/payments";
@@ -31,6 +31,8 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
   const status = LESSON_STATUS[lesson.status];
   const upcoming = !hasStarted(lesson);
   const action = (name: Parameters<typeof updateLesson>[1]) => updateLesson.bind(null, lesson.id, name);
+  // Scheduled by the tutor from the calendar, not answered yet by the student.
+  const proposal = lesson.proposed_by_tutor && lesson.status === "pending";
 
   return (
     <div className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
@@ -42,7 +44,8 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
           ) : (
             <span className="font-semibold">{lesson.other_name}</span>
           )}
-          <span className={`chip ${status.className}`}>{status.label}</span>
+          <span className={`chip ${status.className}`}>{proposal ? (as === "student" ? "Proposé par votre tuteur" : "En attente de l'élève") : status.label}</span>
+          {lesson.weekly && <span className="chip bg-clay-100 text-clay-800">Hebdomadaire</span>}
           {as === "student" && lesson.payment && (
             <span className={`chip ${PAYMENT_LABELS[lesson.payment.status].className}`}>{PAYMENT_LABELS[lesson.payment.status].label} · {lesson.payment.amount_label}</span>
           )}
@@ -55,13 +58,19 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {as === "student" && lesson.status === "pending" && upcoming && (lesson.payment?.status === "pending" || lesson.payment?.status === "failed") && (
+        {as === "student" && proposal && upcoming && (
+          <>
+            <form action={acceptProposal.bind(null, lesson.id)}><SubmitButton className="btn-primary"><Wallet size={16} /> Accepter et payer</SubmitButton></form>
+            <form action={action("decline")}><SubmitButton className="btn-outline">Refuser</SubmitButton></form>
+          </>
+        )}
+        {as === "student" && !proposal && lesson.status === "pending" && upcoming && (lesson.payment?.status === "pending" || lesson.payment?.status === "failed") && (
           <form action={payLesson.bind(null, lesson.id)}><SubmitButton className="btn-primary"><Wallet size={16} /> Payer</SubmitButton></form>
         )}
         {lesson.status === "confirmed" && upcomingOrLive(lesson) && (
           <Link href={`/classe/${lesson.id}`} className="btn-dark"><Video size={16} /> Salle de classe</Link>
         )}
-        {as === "tutor" && lesson.status === "pending" && (
+        {as === "tutor" && lesson.status === "pending" && !proposal && (
           <>
             <form action={action("confirm")}><SubmitButton className="btn-primary">Accepter</SubmitButton></form>
             <form action={action("decline")}><SubmitButton className="btn-outline">Refuser</SubmitButton></form>
@@ -70,8 +79,8 @@ function LessonRow({ lesson, as }: { lesson: Lesson; as: "student" | "tutor" }) 
         {as === "tutor" && lesson.status === "confirmed" && !upcoming && (
           <form action={action("complete")}><SubmitButton className="btn-primary"><CircleCheck size={16} /> Marquer terminé</SubmitButton></form>
         )}
-        {upcoming && ["pending", "confirmed"].includes(lesson.status) && !(as === "tutor" && lesson.status === "pending") && (
-          <form action={action("cancel")}><SubmitButton className="btn-ghost text-clay-700">Annuler</SubmitButton></form>
+        {upcoming && ["pending", "confirmed"].includes(lesson.status) && !(as === "tutor" && lesson.status === "pending" && !proposal) && !(as === "student" && proposal) && (
+          <form action={action("cancel")}><SubmitButton className="btn-ghost text-clay-700">{proposal ? "Annuler la proposition" : "Annuler"}</SubmitButton></form>
         )}
         {as === "student" && lesson.status === "completed" && !lesson.review_rating && <ReviewForm lessonId={lesson.id} />}
         {["confirmed", "completed"].includes(lesson.status) && (
@@ -156,7 +165,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
 
   if (user.role === "tutor") {
     const [lessons, profile, feedback] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getTutorFeedbackOverview(user._id)]);
-    const requests = lessons.filter((l) => l.status === "pending" && isUpcoming(l)).sort(byDateAsc);
+    const requests = lessons.filter((l) => l.status === "pending" && !l.proposed_by_tutor && isUpcoming(l)).sort(byDateAsc);
+    const proposals = lessons.filter((l) => l.status === "pending" && l.proposed_by_tutor && isUpcoming(l)).sort(byDateAsc);
     const upcoming = lessons.filter((l) => l.status === "confirmed" && isUpcoming(l)).sort(byDateAsc);
     const toClose = lessons.filter((l) => l.status === "confirmed" && !isUpcoming(l));
     const history = lessons.filter((l) => !isUpcoming(l) && l.status !== "confirmed");
@@ -165,7 +175,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
 
     return (
       <>
-        <EspaceHeader title={`Karibu, ${user.name.split(" ")[0]} !`}>Gérez vos demandes de cours et votre planning.</EspaceHeader>
+        <EspaceHeader
+          title={`Karibu, ${user.name.split(" ")[0]} !`}
+          actions={<Link href="/calendrier" className="btn-dark"><CalendarDays size={16} /> Mon calendrier</Link>}
+        >
+          Gérez vos demandes de cours et votre planning.
+        </EspaceHeader>
         <div className="space-y-10">
           {noticeBanner}
           {profile && (!profile.approved || !profile.headline) && (
@@ -181,6 +196,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
             <Stat icon={Star} label="Note moyenne" value={profile?.rating ? `${profile.rating.toFixed(1)} / 5` : "–"} />
           </div>
           <LessonList title="Demandes à traiter" lessons={requests} as="tutor" empty={<EmptyState title="Aucune nouvelle demande" />} />
+          {proposals.length > 0 && <LessonList title="Cours proposés, en attente de l'élève" lessons={proposals} as="tutor" empty={null} />}
           <FeedbackSection overview={feedback} />
           <LessonList title="Prochains cours" lessons={upcoming} as="tutor" empty={<EmptyState title="Aucun cours confirmé à venir" />} />
           {toClose.length > 0 && <LessonList title="Cours à clôturer" lessons={toClose} as="tutor" empty={null} />}

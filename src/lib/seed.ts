@@ -326,9 +326,21 @@ export async function seed(c: Collections) {
     upcoming(approved[0], inDays(2, 17), "confirmed", "J'aimerais travailler les nombres."),
     upcoming(approved[2], inDays(5, 10), "pending", "Je pars à Dakar en décembre !"),
   );
+  // A weekly series with the first tutor, so the calendar shows every kind of lesson.
+  const series = new ObjectId();
+  for (const days of [1, 8, 15]) {
+    lessons.push({
+      _id: new ObjectId(), studentId: students[1]._id, tutorId: approved[0]._id, languageSlug: approved[0].tutor.languages[0].slug, startsAt: inDays(days, 6),
+      durationMinutes: 50, price: approved[0].tutor.hourlyRate, status: "confirmed", message: "Conversation hebdomadaire.", seriesId: series, createdAt: now,
+    });
+  }
 
   await c.users.insertMany([admin, ...tutors, ...students]);
   await c.lessons.insertMany(lessons);
+  await c.calendarBlocks.insertMany([
+    { _id: new ObjectId(), tutorId: approved[0]._id, kind: "time_off", startsAt: inDays(3, 4), endsAt: inDays(3, 10), note: "Rendez-vous", createdAt: now },
+    { _id: new ObjectId(), tutorId: approved[0]._id, kind: "extra", startsAt: inDays(4, 11), endsAt: inDays(4, 14), note: "", createdAt: now },
+  ]);
   await c.reviews.insertMany(reviews);
   await c.feedback.insertMany(feedback);
 
