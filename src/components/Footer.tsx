@@ -1,42 +1,50 @@
 import Link from "next/link";
 import { ArrowUp, ArrowUpRight, Search, Sparkles } from "lucide-react";
+import { getCurrentUser, type SessionUser } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
 import { listLanguages } from "@/lib/queries";
 import { Logo } from "./ui";
 
-const COLUMNS = [
-  {
-    title: "Apprendre",
-    links: [
-      { href: "/tuteurs", label: "Trouver un tuteur" },
-      { href: "/langues", label: "Toutes les langues" },
-      { href: "/#comment-ca-marche", label: "Comment ça marche" },
-      { href: "/forum", label: "Communauté" },
-    ],
-  },
-  {
-    title: "Enseigner",
-    links: [
-      { href: "/devenir-tuteur", label: "Devenir tuteur" },
-      { href: "/inscription?role=tuteur", label: "Créer un compte tuteur" },
-      { href: "/profil/tuteur", label: "Mon profil de tuteur" },
-    ],
-  },
-  {
-    title: "Mon compte",
-    links: [
-      { href: "/connexion", label: "Se connecter" },
-      { href: "/inscription", label: "Créer un compte" },
-      { href: "/tableau-de-bord", label: "Mes cours" },
-      { href: "/progression", label: "Ma progression" },
-    ],
-  },
-];
+type Column = { title: string; links: { href: string; label: string }[] };
+
+const LEARN: Column = {
+  title: "Apprendre",
+  links: [
+    { href: "/tuteurs", label: "Trouver un tuteur" },
+    { href: "/langues", label: "Toutes les langues" },
+    { href: "/#comment-ca-marche", label: "Comment ça marche" },
+    { href: "/forum", label: "Communauté" },
+  ],
+};
+
+// The footer adapts to who is reading: no "become a tutor" for tutors, no sign-up once signed in.
+function columnsFor(role: SessionUser["role"] | null): Column[] {
+  if (role === "tutor") {
+    return [
+      LEARN,
+      { title: "Mon enseignement", links: [{ href: "/accueil", label: "Accueil tuteur" }, { href: "/tableau-de-bord", label: "Mes cours" }, { href: "/profil/tuteur", label: "Mon profil de tuteur" }] },
+      { title: "Mon compte", links: [{ href: "/messages", label: "Messages" }, { href: "/progression", label: "Mon évolution" }, { href: "/profil", label: "Mon profil" }] },
+    ];
+  }
+  if (role) {
+    return [
+      LEARN,
+      { title: "Enseigner", links: [{ href: "/devenir-tuteur", label: "Devenir tuteur" }] },
+      { title: "Mon compte", links: [{ href: "/tableau-de-bord", label: "Mes cours" }, { href: "/messages", label: "Messages" }, { href: "/progression", label: "Ma progression" }, { href: "/profil", label: "Mon profil" }] },
+    ];
+  }
+  return [
+    LEARN,
+    { title: "Enseigner", links: [{ href: "/devenir-tuteur", label: "Devenir tuteur" }, { href: "/inscription?role=tuteur", label: "Créer un compte tuteur" }] },
+    { title: "Mon compte", links: [{ href: "/connexion", label: "Se connecter" }, { href: "/inscription", label: "Créer un compte" }] },
+  ];
+}
 
 const PAYMENTS = ["MTN Mobile Money", "Orange Money", "Carte bancaire", "Apple Pay / Google Pay"];
 
 export async function Footer() {
-  const languages = await listLanguages();
+  const [languages, user] = await Promise.all([listLanguages(), getCurrentUser()]);
+  const COLUMNS = columnsFor(user?.role ?? null);
 
   return (
     <footer className="mt-auto px-3 pb-3 pt-10 sm:px-4 sm:pb-4">
@@ -56,7 +64,9 @@ export async function Footer() {
             </figure>
             <div className="mt-8 flex flex-wrap gap-2">
               <Link href="/tuteurs" className="btn bg-ochre-400 text-forest-900 hover:bg-ochre-300"><Search size={16} /> Trouver un tuteur</Link>
-              <Link href="/devenir-tuteur" className="btn border border-white/20 text-sand-50 hover:border-white/50 hover:bg-white/5"><Sparkles size={16} /> Enseigner sur Riya</Link>
+              {(!user || user.role === "student") && (
+                <Link href="/devenir-tuteur" className="btn border border-white/20 text-sand-50 hover:border-white/50 hover:bg-white/5"><Sparkles size={16} /> Enseigner sur Riya</Link>
+              )}
             </div>
           </div>
 
