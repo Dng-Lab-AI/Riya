@@ -11,8 +11,10 @@ import { reactivateMember, setTutorApproval, setUserRole } from "@/lib/actions/a
 import { getMemberDetail } from "@/lib/admin-data";
 import { requireAdmin } from "@/lib/auth";
 import { formatPrice, timeAgo } from "@/lib/constants";
+import { toObjectId } from "@/lib/db";
 import { publicOrigin } from "@/lib/site";
 import { ACTION_LABELS, ROLE_LABELS, ROLE_STYLE, STATUS_LABELS, STATUS_STYLE } from "../../labels";
+import { StudentProgressSection, TutorStudentsSection } from "./sections";
 
 const M = defineMessages({
   en: {
@@ -62,6 +64,7 @@ export default async function MemberPage({ params }: PageProps<"/gestion/utilisa
   const t = M[locale];
   const { user, activity } = detail;
   const isAdmin = user.role === "admin";
+  const memberId = toObjectId(user.id)!;
   const date = (iso: string) => new Date(iso).toLocaleDateString(intlLocale(locale), { day: "numeric", month: "long", year: "numeric" });
 
   return (
@@ -160,6 +163,9 @@ export default async function MemberPage({ params }: PageProps<"/gestion/utilisa
               <p className="text-sm text-earth-600">{t.noLessons}</p>
             )}
           </section>
+
+          {user.tutor && <TutorStudentsSection tutorId={memberId} locale={locale} />}
+          <StudentProgressSection studentId={memberId} locale={locale} />
         </div>
 
         <div className="space-y-6">

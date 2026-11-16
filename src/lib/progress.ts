@@ -126,14 +126,15 @@ export type StudentProgress = {
   recentWords: string[];
 };
 
-export async function getStudentProgress(studentId: ObjectId, locale: Locale): Promise<StudentProgress> {
+// With tutorId: only the lessons taken with that tutor (admin site, per tutor and student).
+export async function getStudentProgress(studentId: ObjectId, locale: Locale, tutorId?: ObjectId): Promise<StudentProgress> {
   const t = M[locale];
   const db = await getDb();
-  const [lessons, sentences, names] = await Promise.all([
-    db.lessons.find({ studentId, status: "completed" }).sort({ startsAt: 1 }).toArray(),
-    db.transcript.countDocuments({ speakerId: studentId }),
+  const [lessons, names] = await Promise.all([
+    db.lessons.find({ studentId, status: "completed", ...(tutorId ? { tutorId } : {}) }).sort({ startsAt: 1 }).toArray(),
     languageNames(locale),
   ]);
+  const sentences = await db.transcript.countDocuments({ speakerId: studentId, ...(tutorId ? { lessonId: { $in: lessons.map((l) => l._id) } } : {}) });
 
   // Vocabulary grows lesson after lesson: one point per completed lesson.
   const seen = new Set<string>();
