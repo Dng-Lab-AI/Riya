@@ -165,6 +165,7 @@ export async function updateLesson(lessonId: string, action: LessonAction) {
     }
   } else if (action === "cancel" && (isStudent || isTutor) && !started) {
     const { modifiedCount } = await move(["pending", "confirmed"], "cancelled");
+    if (modifiedCount) await db.lessons.updateOne({ _id }, { $set: { cancelledBy: isTutor ? "tutor" : "student" } });
     // The tutor cancelling, or the student cancelling early enough, gets the student refunded.
     const early = lesson.startsAt.getTime() - Date.now() >= FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
     if (modifiedCount && (isTutor || early)) await refundLesson(lesson);

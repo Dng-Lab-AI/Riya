@@ -14,12 +14,12 @@ import { MobileMenu } from "./MobileMenu";
 const M = defineMessages({
   en: {
     languages: "Languages", findTutor: "Find a tutor", community: "Community", becomeTutor: "Become a tutor", home: "Riya home",
-    tutorHome: "Home", calendar: "Calendar", lessons: "My lessons", tutors: "My tutors", progressTutor: "My progress", progressStudent: "My progress",
+    tutorHome: "Home", calendar: "Calendar", lessons: "My lessons", tutors: "My tutors", progressTutor: "Insights", progressStudent: "My progress",
     messages: "Messages", profile: "My profile", admin: "Admin", signIn: "Log in", start: "Get started for free", logout: "Log out",
   },
   fr: {
     languages: "Langues", findTutor: "Trouver un tuteur", community: "Communauté", becomeTutor: "Devenir tuteur", home: "Accueil Riya",
-    tutorHome: "Accueil", calendar: "Calendrier", lessons: "Mes cours", tutors: "Mes tuteurs", progressTutor: "Mon évolution", progressStudent: "Ma progression",
+    tutorHome: "Accueil", calendar: "Calendrier", lessons: "Mes cours", tutors: "Mes tuteurs", progressTutor: "Statistiques", progressStudent: "Ma progression",
     messages: "Messages", profile: "Mon profil", admin: "Administration", signIn: "Se connecter", start: "Commencer gratuitement", logout: "Se déconnecter",
   },
 });
@@ -40,7 +40,7 @@ export async function Header() {
         ...(user.role === "tutor" ? [{ href: "/accueil", label: t.tutorHome }, { href: "/calendrier", label: t.calendar }] : []),
         { href: "/tableau-de-bord", label: t.lessons },
         ...(user.role === "student" ? [{ href: "/mes-tuteurs", label: t.tutors }] : []),
-        { href: "/progression", label: user.role === "tutor" ? t.progressTutor : t.progressStudent },
+        { href: user.role === "tutor" ? "/statistiques" : "/progression", label: user.role === "tutor" ? t.progressTutor : t.progressStudent },
         { href: "/messages", label: unread ? `${t.messages} (${unread})` : t.messages },
         { href: "/profil", label: t.profile },
         ...(user.role === "admin" ? [{ href: "/admin", label: t.admin }] : []),

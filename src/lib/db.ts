@@ -106,6 +106,10 @@ export type LessonDoc = {
   message: string;
   // Last time each participant was seen in the classroom, keyed by user id.
   presence?: Record<string, Date>;
+  // First time each participant entered the classroom, keyed by user id (tutor insights: missed lessons).
+  joinedAt?: Record<string, Date>;
+  // Who cancelled a planned lesson (tutor insights: cancellation rate).
+  cancelledBy?: "tutor" | "student";
   // Written by the tutor during or after the class.
   notes?: LessonNotes;
   // Shared document currently shown full screen in the classroom.
@@ -223,6 +227,9 @@ export type MessageDoc = {
 };
 export type NotificationKind = "interest" | "booking_abandoned";
 
+// One visit of a tutor's public profile: one per visitor and day (tutor insights).
+export type ProfileViewDoc = { _id: ObjectId; tutorId: ObjectId; day: string; visitor: string; at: Date };
+
 // A student started booking a tutor (picked a time slot). Used to remind the tutor
 // when the booking is not finished.
 export type BookingIntentDoc = {
@@ -260,6 +267,7 @@ export type Collections = {
   avatars: Collection<AvatarDoc>;
   calendarBlocks: Collection<CalendarBlockDoc>;
   bookingIntents: Collection<BookingIntentDoc>;
+  profileViews: Collection<ProfileViewDoc>;
   files: GridFSBucket;
   // Tutors' presentation videos (metadata: { tutorId, contentType }).
   videos: GridFSBucket;
@@ -287,6 +295,7 @@ function collectionsOf(db: Db): Collections {
     avatars: db.collection("avatars"),
     calendarBlocks: db.collection("calendar_blocks"),
     bookingIntents: db.collection("booking_intents"),
+    profileViews: db.collection("profile_views"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     videos: new GridFSBucket(db, { bucketName: "tutor_videos" }),
     meta: db.collection("meta"),
@@ -335,6 +344,8 @@ async function init(): Promise<Collections> {
     c.calendarBlocks.createIndex({ tutorId: 1, startsAt: 1 }),
     c.messages.createIndex({ kind: 1, senderId: 1, recipientId: 1, createdAt: -1 }, { partialFilterExpression: { kind: { $exists: true } } }),
     c.bookingIntents.createIndex({ studentId: 1, tutorId: 1, completedAt: 1, notifiedAt: 1 }),
+    c.profileViews.createIndex({ tutorId: 1, day: 1, visitor: 1 }, { unique: true }),
+    c.profileViews.createIndex({ at: 1 }, { expireAfterSeconds: 400 * 24 * 60 * 60 }),
     c.bookingIntents.createIndex({ completedAt: 1, notifiedAt: 1, lastActivityAt: 1 }),
     // Old intents are only history: drop them after 60 days.
     c.bookingIntents.createIndex({ startedAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 }),

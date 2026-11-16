@@ -72,7 +72,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/classe/[
   const isTutor = lesson.tutorId.equals(user._id);
 
   const now = new Date();
-  if (open) await db.lessons.updateOne({ _id: lesson._id }, { $set: { [`presence.${user.id}`]: now } });
+  if (open) {
+    // The first visit is kept: it tells whether each participant came to the lesson.
+    const first = lesson.joinedAt?.[user.id] ? {} : { [`joinedAt.${user.id}`]: now };
+    await db.lessons.updateOne({ _id: lesson._id }, { $set: { [`presence.${user.id}`]: now, ...first } });
+  }
 
   const param = (name: string) => toObjectId(request.nextUrl.searchParams.get(name));
   const signalAfter = param("signals");

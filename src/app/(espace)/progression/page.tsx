@@ -1,12 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Info } from "lucide-react";
 import { AreaChart, BarList, ColumnChart, DomainMeters } from "@/components/charts";
 import { EmptyState, EspaceHeader } from "@/components/ui";
 import { defineMessages, intlLocale, type Locale } from "@/i18n";
 import { getLocale, titled } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
-import { commissionRate } from "@/lib/payments";
-import { getStudentProgress, getTutorProgress } from "@/lib/progress";
+import { getStudentProgress } from "@/lib/progress";
 
 const s = (n: number) => (n > 1 ? "s" : "");
 
@@ -85,7 +85,9 @@ function Card({ title, subtitle, children, className = "" }: { title: string; su
 export default async function ProgressPage() {
   const user = await requireUser("/progression");
   const locale = await getLocale();
-  return user.role === "tutor" ? <TutorProgressView tutorId={user._id} locale={locale} /> : <StudentProgressView studentId={user._id} firstName={user.name.split(" ")[0]} locale={locale} />;
+  // Tutors follow their activity on the Insights page.
+  if (user.role === "tutor") redirect("/statistiques");
+  return <StudentProgressView studentId={user._id} firstName={user.name.split(" ")[0]} locale={locale} />;
 }
 
 async function StudentProgressView({ studentId, firstName, locale }: { studentId: Parameters<typeof getStudentProgress>[0]; firstName: string; locale: Locale }) {
@@ -146,56 +148,6 @@ async function StudentProgressView({ studentId, firstName, locale }: { studentId
             <BarList data={p.languages} unit="cours" />
           </Card>
         </div>
-      </div>
-    </>
-  );
-}
-
-async function TutorProgressView({ tutorId, locale }: { tutorId: Parameters<typeof getTutorProgress>[0]; locale: Locale }) {
-  const t = M[locale];
-  const p = await getTutorProgress(tutorId, commissionRate(), locale);
-
-  if (p.lessons === 0) {
-    return (
-      <>
-        <EspaceHeader title={t.myActivity}>{t.followTutor}</EspaceHeader>
-        <EmptyState title={t.statsTitle}>{t.statsText}</EmptyState>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <EspaceHeader title={t.myActivity}>{t.activityLead}</EspaceHeader>
-      <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat dark label={t.taught} value={p.hours.toLocaleString(intlLocale(locale))} caption={t.completed(p.lessons)} />
-          <Stat label={t.students} value={p.students} caption={t.loyal(p.returning)} />
-          <Stat label={t.avg} value={p.rating === null ? "—" : `${p.rating.toLocaleString(intlLocale(locale))} / 5`} caption={t.ratings(p.ratingCount)} />
-          <Stat label={t.accepted} value={p.acceptance === null ? "—" : `${p.acceptance}${locale === "fr" ? " " : ""}%`} caption={t.acceptedCaption} />
-        </div>
-
-        <div className="grid items-start gap-6 xl:grid-cols-2">
-          <Card title={t.given} subtitle={t.last12}>
-            <ColumnChart data={p.weekly} label={t.givenLabel} />
-          </Card>
-          <Card title={t.earnings} subtitle={t.earningsSub}>
-            <ColumnChart data={p.earnings} unit="euro" label={t.earningsLabel} />
-          </Card>
-        </div>
-
-        <div className="grid items-start gap-6 xl:grid-cols-[3fr_2fr]">
-          <Card title={t.satisfaction} subtitle={t.satisfactionSub}>
-            <AreaChart data={p.ratings} domain={[0, 5]} label={t.satisfactionLabel} />
-          </Card>
-          <Card title={t.strengths} subtitle={t.strengthsSub}>
-            <DomainMeters domains={p.criteria} />
-          </Card>
-        </div>
-
-        <Card title={t.taughtLanguages} subtitle={t.perLanguage}>
-          <BarList data={p.languages} unit="cours" />
-        </Card>
       </div>
     </>
   );

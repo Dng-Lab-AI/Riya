@@ -14,7 +14,7 @@ const M = defineMessages({
   en: {
     learn: "Learn", findTutor: "Find a tutor", allLanguages: "All languages", how: "How it works", community: "Community",
     teaching: "My teaching", tutorHome: "Tutor home", calendar: "Calendar", students: "My students", tutorProfile: "My tutor profile",
-    account: "My account", messages: "Messages", progressTutor: "My progress", profile: "My profile",
+    account: "My account", messages: "Messages", progressTutor: "Insights", profile: "My profile",
     teach: "Teach", becomeTutor: "Become a tutor", createTutorAccount: "Create a tutor account",
     lessons: "My lessons", tutors: "My tutors", progressStudent: "My progress", signIn: "Log in", signUp: "Create an account",
     proverb: "Language is identity. Swahili proverb.", teachOnRiya: "Teach on Riya", payTitle: "Easy payment, wherever you live", card: "Bank card",
@@ -23,7 +23,7 @@ const M = defineMessages({
   fr: {
     learn: "Apprendre", findTutor: "Trouver un tuteur", allLanguages: "Toutes les langues", how: "Comment ça marche", community: "Communauté",
     teaching: "Mon enseignement", tutorHome: "Accueil tuteur", calendar: "Calendrier", students: "Mes élèves", tutorProfile: "Mon profil de tuteur",
-    account: "Mon compte", messages: "Messages", progressTutor: "Mon évolution", profile: "Mon profil",
+    account: "Mon compte", messages: "Messages", progressTutor: "Statistiques", profile: "Mon profil",
     teach: "Enseigner", becomeTutor: "Devenir tuteur", createTutorAccount: "Créer un compte tuteur",
     lessons: "Mes cours", tutors: "Mes tuteurs", progressStudent: "Ma progression", signIn: "Se connecter", signUp: "Créer un compte",
     proverb: "La langue, c'est l'identité. Proverbe swahili.", teachOnRiya: "Enseigner sur Riya", payTitle: "Paiement simple, selon votre pays", card: "Carte bancaire",
@@ -55,7 +55,7 @@ function columnsFor(role: SessionUser["role"] | null, locale: Locale): Column[] 
           { href: "/profil/tuteur", label: t.tutorProfile },
         ],
       },
-      { title: t.account, links: [{ href: "/messages", label: t.messages }, { href: "/progression", label: t.progressTutor }, { href: "/profil", label: t.profile }] },
+      { title: t.account, links: [{ href: "/messages", label: t.messages }, { href: "/statistiques", label: t.progressTutor }, { href: "/profil", label: t.profile }] },
     ];
   }
   if (role) {
