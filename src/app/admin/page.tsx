@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BookOpen, GraduationCap, Languages, MessagesSquare, UserCheck, Users, Wallet } from "lucide-react";
+import { BookOpen, Check, Clock, ExternalLink, GraduationCap, Languages, Mail, MessagesSquare, UserCheck, Users, Video, Wallet } from "lucide-react";
+import { AskChangesForm } from "@/components/admin/AskChangesForm";
 import { SubmitButton } from "@/components/client";
 import { Avatar, EmptyState, PageHeader } from "@/components/ui";
 import { defineMessages } from "@/i18n";
@@ -8,7 +9,8 @@ import { getLocale, titled } from "@/i18n/server";
 import { setTutorApproval, setUserRole, setUserStatus } from "@/lib/actions/admin";
 import { requireRole } from "@/lib/auth";
 import { first, formatPrice, timeAgo } from "@/lib/constants";
-import { getPlatformStats, listPendingTutors, listTopics, listUsers } from "@/lib/queries";
+import { getPlatformStats, listTopics, listUsers } from "@/lib/queries";
+import { listTutorReviews, type ReviewItem } from "@/lib/tutor-review";
 
 const ROLE_STYLE: Record<string, string> = {
   student: "bg-sand-100 text-earth-700",
@@ -23,6 +25,9 @@ const M = defineMessages<{
   approve: string; noPending: string; search: string; searchPlaceholder: string; member: string; role: string; status: string;
   joined: string; actions: string; active: string; suspended: string; you: string; toStudent: string; toTutor: string; suspend: string;
   reactivate: string; latest: string; by: string; replies: (n: number) => string; moderate: string;
+  toApproveLead: string; ready: (n: number) => string; changesAsked: (n: number) => string; unfinished: (n: number) => string;
+  unfinishedLead: string; submitted: (ago: string) => string; joinedAgo: (ago: string) => string; asked: (ago: string) => string;
+  years: (n: number) => string; video: string; viewProfile: string; write: string;
 }>({
   en: {
     roles: { student: "Student", tutor: "Tutor", admin: "Admin" }, members: "Members", students: (n) => `${n} students`,
@@ -34,6 +39,11 @@ const M = defineMessages<{
     role: "Role", status: "Status", joined: "Joined", actions: "Actions", active: "Active", suspended: "Suspended", you: "You",
     toStudent: "→ Student", toTutor: "→ Tutor", suspend: "Suspend", reactivate: "Reactivate", latest: "Latest discussions",
     by: "by", replies: (n) => `${n} repl${n === 1 ? "y" : "ies"}`, moderate: "Moderate",
+    toApproveLead: "A tutor only appears in the search once approved. You get an e-mail as soon as a profile is ready.",
+    ready: (n) => `Ready to review (${n})`, changesAsked: (n) => `Changes asked, waiting for the tutor (${n})`,
+    unfinished: (n) => `Profile not finished yet (${n})`, unfinishedLead: "They will come up for review on their own once their profile is complete.",
+    submitted: (ago) => `Sent ${ago}`, joinedAgo: (ago) => `Joined ${ago}`, asked: (ago) => `Asked ${ago}`,
+    years: (n) => `${n} year${n === 1 ? "" : "s"} of experience`, video: "Video", viewProfile: "View the profile", write: "Write",
   },
   fr: {
     roles: { student: "Élève", tutor: "Tuteur", admin: "Admin" }, members: "Membres", students: (n) => `${n} élèves`,
@@ -45,6 +55,11 @@ const M = defineMessages<{
     role: "Rôle", status: "Statut", joined: "Inscrit", actions: "Actions", active: "Actif", suspended: "Suspendu", you: "Vous",
     toStudent: "→ Élève", toTutor: "→ Tuteur", suspend: "Suspendre", reactivate: "Réactiver", latest: "Dernières discussions",
     by: "par", replies: (n) => `${n} réponse(s)`, moderate: "Modérer",
+    toApproveLead: "Un tuteur n'apparaît dans la recherche qu'une fois validé. Vous recevez un e-mail dès qu'un profil est prêt.",
+    ready: (n) => `Prêts à valider (${n})`, changesAsked: (n) => `Modifications demandées, en attente du tuteur (${n})`,
+    unfinished: (n) => `Profil pas encore terminé (${n})`, unfinishedLead: "Ils reviendront d'eux-mêmes à valider une fois leur profil complet.",
+    submitted: (ago) => `Envoyé ${ago}`, joinedAgo: (ago) => `Inscrit ${ago}`, asked: (ago) => `Demandé ${ago}`,
+    years: (n) => `${n} an${n > 1 ? "s" : ""} d'expérience`, video: "Vidéo", viewProfile: "Voir le profil", write: "Écrire",
   },
 });
 
@@ -53,8 +68,11 @@ export const generateMetadata = () => titled({ en: "Administration", fr: "Admini
 export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const admin = await requireRole("admin", "/admin");
   const q = first((await searchParams).q);
-  const [stats, pending, users, topics, locale] = await Promise.all([getPlatformStats(), listPendingTutors(), listUsers(q), listTopics({}, 6), getLocale()]);
+  const locale = await getLocale();
+  const [stats, reviews, users, topics] = await Promise.all([getPlatformStats(), listTutorReviews(locale), listUsers(q), listTopics({}, 6)]);
   const t = M[locale];
+  const tutorLine = (tutor: ReviewItem) =>
+    [tutor.languages.join(", ") || t.noLanguage, tutor.country ? countryName(tutor.country, locale) : t.noCountry, formatPrice(tutor.hourly_rate, locale), t.years(tutor.years_experience)].join(" · ");
 
   const cards = [
     { icon: Users, label: t.members, value: stats.users, hint: t.students(stats.students) },
@@ -82,26 +100,81 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           ))}
         </div>
 
-        <section>
-          <h2 className="mb-4 flex items-center gap-2 font-display text-2xl font-semibold"><UserCheck size={22} /> {t.toApprove}</h2>
-          {pending.length ? (
-            <div className="space-y-3">
-              {pending.map((tutor) => (
-                <div key={tutor.id} className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-                  <Avatar name={tutor.name} src={tutor.avatar_url} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/tuteurs/${tutor.id}`} className="font-semibold hover:text-clay-700">{tutor.name}</Link>
-                    <p className="text-sm text-earth-600">{tutor.languages.map((l) => l.name).join(", ") || t.noLanguage} · {tutor.country ? countryName(tutor.country, locale) : t.noCountry} · {formatPrice(tutor.hourly_rate, locale)}</p>
-                    <p className="truncate text-sm text-earth-500">{tutor.headline || t.incomplete}</p>
-                  </div>
-                  <form action={setTutorApproval.bind(null, tutor.id, true)}>
-                    <SubmitButton disabled={!tutor.headline || tutor.languages.length === 0} title={!tutor.headline ? t.incomplete : undefined}>{t.approve}</SubmitButton>
-                  </form>
-                </div>
-              ))}
+        <section id="a-valider" className="scroll-mt-24 space-y-6">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-2xl font-semibold"><UserCheck size={22} /> {t.toApprove}</h2>
+            <p className="mt-1 text-sm text-earth-600">{t.toApproveLead}</p>
+          </div>
+
+          <div>
+            <h3 className="mb-3 font-semibold">{t.ready(reviews.ready.length)}</h3>
+            {reviews.ready.length ? (
+              <div className="space-y-3">
+                {reviews.ready.map((tutor) => (
+                  <article key={tutor.id} className="card p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <Avatar name={tutor.name} src={tutor.avatar_url} size={56} />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link href={`/tuteurs/${tutor.id}`} className="font-semibold hover:text-clay-700">{tutor.name}</Link>
+                          {tutor.has_video && <span className="chip bg-forest-100 text-forest-800"><Video size={12} /> {t.video}</span>}
+                          <span className="chip bg-sand-100 text-earth-600"><Clock size={12} /> {tutor.submitted_at ? t.submitted(timeAgo(tutor.submitted_at, locale)) : t.joinedAgo(timeAgo(tutor.joined_at, locale))}</span>
+                        </div>
+                        <p className="text-sm text-earth-600">{tutorLine(tutor)}</p>
+                        <p className="font-medium">{tutor.headline}</p>
+                        <p className="line-clamp-3 text-sm text-earth-600">{tutor.about}</p>
+                        <p className="flex items-center gap-1.5 text-xs text-earth-500"><Mail size={12} /> {tutor.email}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-start gap-2 border-t border-sand-200 pt-4">
+                      <form action={setTutorApproval.bind(null, tutor.id, true)}>
+                        <SubmitButton><Check size={16} /> {t.approve}</SubmitButton>
+                      </form>
+                      <Link href={`/tuteurs/${tutor.id}`} target="_blank" className="btn-outline"><ExternalLink size={16} /> {t.viewProfile}</Link>
+                      <AskChangesForm tutorId={tutor.id} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title={t.noPending} />
+            )}
+          </div>
+
+          {reviews.changesAsked.length > 0 && (
+            <div>
+              <h3 className="mb-3 font-semibold">{t.changesAsked(reviews.changesAsked.length)}</h3>
+              <ul className="card divide-y divide-sand-200">
+                {reviews.changesAsked.map((tutor) => (
+                  <li key={tutor.id} className="flex flex-col gap-1 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Link href={`/tuteurs/${tutor.id}`} className="font-semibold hover:text-clay-700">{tutor.name}</Link>
+                      <span className="text-xs text-earth-500">{tutor.review && t.asked(timeAgo(tutor.review.at, locale))}</span>
+                    </div>
+                    <p className="text-sm italic text-earth-600">« {tutor.review?.note} »</p>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ) : (
-            <EmptyState title={t.noPending} />
+          )}
+
+          {reviews.unfinished.length > 0 && (
+            <details className="card p-4">
+              <summary className="cursor-pointer font-semibold">{t.unfinished(reviews.unfinished.length)}</summary>
+              <p className="mt-2 text-sm text-earth-600">{t.unfinishedLead}</p>
+              <ul className="mt-3 divide-y divide-sand-200">
+                {reviews.unfinished.map((tutor) => (
+                  <li key={tutor.id} className="flex flex-wrap items-center gap-3 py-3">
+                    <Avatar name={tutor.name} src={tutor.avatar_url} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{tutor.name}</p>
+                      <p className="truncate text-xs text-earth-500">{tutor.email} · {t.joinedAgo(timeAgo(tutor.joined_at, locale))}</p>
+                    </div>
+                    <Link href={`/messages/${tutor.id}`} className="btn-ghost text-xs">{t.write}</Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </section>
 

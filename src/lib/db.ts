@@ -16,6 +16,11 @@ export type TutorProfile = {
   availability: string[];
   speaks: string;
   approved: boolean;
+  // Review by the Riya team: when the complete profile was sent, when it was approved,
+  // and the changes asked (until the tutor saves the profile again).
+  submittedAt?: Date;
+  approvedAt?: Date;
+  review?: { note: string; at: Date };
   languages: { slug: string; level: "native" | "fluent" }[];
   // Denormalised counters, updated when a review is left or a lesson completed.
   ratingSum: number;

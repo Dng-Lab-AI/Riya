@@ -11,6 +11,7 @@ import { getDb } from "../db";
 import { hashPassword, verifyPassword } from "../password";
 import { isKnownCountry } from "../payments/countries";
 import { emptyTutorProfile } from "../tutor-profile";
+import { submitForReview } from "../tutor-review";
 import { int, refreshAll, text, type FormState } from "./shared";
 
 const M = defineMessages({
@@ -137,6 +138,8 @@ export async function updateTutorProfile(_prev: FormState, formData: FormData): 
     { returnDocument: "after" },
   );
 
+  // A complete profile goes to the Riya team for review (and they are told).
+  if (!updated?.tutor?.approved) await submitForReview(user._id);
   refreshAll();
   return {
     success: updated?.tutor?.approved ? t.saved : t.savedPending,
