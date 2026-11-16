@@ -358,9 +358,18 @@ async function init(): Promise<Collections> {
   return c;
 }
 
-const globalForDb = globalThis as unknown as { riyaDb?: Promise<Collections> };
+// The connection is kept on globalThis so it survives hot reloads in development.
+// Bump this whenever a collection or index is added: a server already running then
+// rebuilds its cache instead of serving an object that lacks the new collection.
+const SCHEMA_VERSION = 2;
+
+const globalForDb = globalThis as unknown as { riyaDb?: Promise<Collections>; riyaDbVersion?: number };
 
 export function getDb(): Promise<Collections> {
+  if (globalForDb.riyaDbVersion !== SCHEMA_VERSION) {
+    globalForDb.riyaDb = undefined;
+    globalForDb.riyaDbVersion = SCHEMA_VERSION;
+  }
   globalForDb.riyaDb ??= init().catch((err) => {
     globalForDb.riyaDb = undefined; // retry on the next request
     throw err;
