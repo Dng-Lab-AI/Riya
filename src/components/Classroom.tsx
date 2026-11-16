@@ -68,6 +68,17 @@ type SyncResponse = {
 };
 
 const POLL_MS = 1000;
+// While the video call is being set up, the classroom polls faster so offers and answers arrive quickly.
+const FAST_POLL_MS = 300;
+// How long to wait for the network addresses (ICE candidates) to be gathered before sending an offer or
+// answer: they then travel inside it, instead of one request each.
+const GATHER_WAIT_MS = 1500;
+// A connection that stays interrupted this long is negotiated again.
+const RECONNECT_AFTER_MS = 4000;
+// Connection quality: measured every few seconds once connected. Above these, the call is "weak".
+const QUALITY_EVERY_MS = 3000;
+const WEAK_RTT_S = 0.4;
+const WEAK_LOSS = 0.05;
 const NOTES_SAVE_DELAY_MS = 1200;
 const CAPTION_MS = 7000;
 // The end-of-lesson warning (and the tutor's "add time" buttons) shows this long before the end.
@@ -83,7 +94,7 @@ const M = defineMessages<{
   classroom: string; ready: (name: string) => string; check: string; features: string[]; join: string; preparing: string; you: string;
   sharing: string; connecting: string; notJoined: (name: string) => string; lessonWith: (lesson: string, name: string) => string;
   extendTitle: (n: number) => string; maxTitle: (n: number) => string; moreTime: string; addTimeText: (n: number) => string; aiActive: string;
-  aiListening: string; ai: string; connected: string; connectingShort: string; waitingFor: (name: string) => string; exitFullscreenTitle: string;
+  aiListening: string; ai: string; connected: string; connectingShort: string; waitingFor: (name: string) => string; weak: string; weakTitle: string; exitFullscreenTitle: string;
   fullscreenTitle: string; exitFullscreen: string; fullscreen: string; endsIn: (d: string) => string; add: string; maxReached: (n: number) => string;
   raisesHand: (name: string) => string; lower: string; sharedBoard: string; stopPresenting: string; close: string;
   tabs: Record<"chat" | "documents" | "notes" | "quiz" | "assistant", string>; closePanel: string; chatHint: string; messagePlaceholder: string;
@@ -111,7 +122,8 @@ const M = defineMessages<{
     notJoined: (name) => `${name} hasn't joined the class yet.`, lessonWith: (lesson, name) => `${lesson} with ${name}`,
     extendTitle: (n) => `Extend the lesson (${n} more min possible)`, maxTitle: (n) => `The lesson has already been extended by ${n} min, the maximum`,
     moreTime: "+ time", addTimeText: (n) => `Add time at the end of the lesson (${n} more min possible).`, aiActive: "AI assistant active",
-    aiListening: "AI listening", ai: "AI assistant", connected: "Connected", connectingShort: "Connecting…", waitingFor: (name) => `Waiting for ${name}`,
+    aiListening: "AI listening", ai: "AI assistant", connected: "Connected", connectingShort: "Connecting…", waitingFor: (name) => `Waiting for ${name}`, weak: "Weak connection",
+    weakTitle: "The image or sound may freeze: the internet connection (yours or the other person's) is slow or unstable. Getting closer to the Wi-Fi router, closing other videos or turning your camera off helps.",
     exitFullscreenTitle: "Exit full screen (F or Esc)", fullscreenTitle: "Full screen (F)", exitFullscreen: "Exit full screen", fullscreen: "Full screen",
     endsIn: (d) => `The lesson ends in ${d}.`, add: "Add:", maxReached: (n) => `Maximum extension reached (${n} min).`,
     raisesHand: (name) => `${name} is raising their hand`, lower: "Lower", sharedBoard: "Shared whiteboard", stopPresenting: "Stop presenting", close: "Close",
@@ -144,7 +156,8 @@ const M = defineMessages<{
     notJoined: (name) => `${name} n'a pas encore rejoint la classe.`, lessonWith: (lesson, name) => `${lesson} avec ${name}`,
     extendTitle: (n) => `Prolonger le cours (encore ${n} min possible${s(n)})`, maxTitle: (n) => `Le cours a déjà été prolongé de ${n} min, le maximum`,
     moreTime: "+ temps", addTimeText: (n) => `Ajouter du temps à la fin du cours (encore ${n} min possible${s(n)}).`, aiActive: "Assistant IA actif",
-    aiListening: "IA à l'écoute", ai: "Assistant IA", connected: "Connecté", connectingShort: "Connexion…", waitingFor: (name) => `En attente de ${name}`,
+    aiListening: "IA à l'écoute", ai: "Assistant IA", connected: "Connecté", connectingShort: "Connexion…", waitingFor: (name) => `En attente de ${name}`, weak: "Connexion faible",
+    weakTitle: "L’image ou le son peuvent se figer : la connexion internet (la vôtre ou celle de l’autre personne) est lente ou instable. Se rapprocher du routeur Wi-Fi, fermer les autres vidéos ou couper sa caméra aide.",
     exitFullscreenTitle: "Quitter le plein écran (F ou Échap)", fullscreenTitle: "Plein écran (F)", exitFullscreen: "Quitter le plein écran", fullscreen: "Plein écran",
     endsIn: (d) => `Le cours se termine dans ${d}.`, add: "Ajouter :", maxReached: (n) => `Prolongation maximale atteinte (${n} min).`,
     raisesHand: (name) => `${name} lève la main`, lower: "Baisser", sharedBoard: "Tableau blanc partagé", stopPresenting: "Arrêter la présentation", close: "Fermer",
@@ -373,6 +386,11 @@ export function Classroom(props: Props) {
     const cursors: Record<string, string | null> = { signals: null, chat: null, events: null, transcript: null };
     let knownDocs: number | null = null;
     let pending: RTCIceCandidateInit[] = [];
+    // Each negotiation has a number: answers and candidates of an older one are ignored
+    // (when both sides joined at the same moment, a late answer used to break the new connection).
+    let gen = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const described = new WeakSet<RTCPeerConnection>();
 
     // Signals are posted one after another so the peer receives them in order
     // (an ICE candidate must never overtake the offer it belongs to).
@@ -383,9 +401,33 @@ export function Classroom(props: Props) {
     };
     const sendSignal = (type: string, payload?: unknown) => post({ kind: "signal", type, payload });
 
-    const createPc = () => {
+    // Resolves once the browser has found its network addresses, or after GATHER_WAIT_MS at most.
+    const gathered = (pc: RTCPeerConnection) =>
+      new Promise<void>((resolve) => {
+        if (pc.iceGatheringState === "complete") return resolve();
+        const timer = setTimeout(resolve, GATHER_WAIT_MS);
+        pc.addEventListener("icegatheringstatechange", () => {
+          if (pc.iceGatheringState === "complete") {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+
+    // Sends the local offer or answer with the candidates gathered so far; later ones follow one by one.
+    const sendDescription = async (pc: RTCPeerConnection, type: "offer" | "answer", forGen: number) => {
+      await gathered(pc);
+      if (pcRef.current !== pc) return;
+      described.add(pc);
+      await sendSignal(type, { gen: forGen, desc: pc.localDescription!.toJSON() });
+    };
+
+    const createPc = (forGen: number) => {
       pcRef.current?.close();
       pending = [];
+      gen = forGen;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
       const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
       const stream = localStreamRef.current ?? new MediaStream();
       const audio = stream.getAudioTracks()[0];
@@ -402,15 +444,26 @@ export function Classroom(props: Props) {
         if (video) pc.addTrack(video, stream);
       }
       pc.ontrack = (event) => setRemoteStream(event.streams[0] ?? new MediaStream([event.track]));
+      // Candidates found before the offer or answer leaves travel inside it.
       pc.onicecandidate = (event) => {
-        if (event.candidate) sendSignal("candidate", event.candidate.toJSON());
+        if (event.candidate && described.has(pc)) sendSignal("candidate", { gen: forGen, candidate: event.candidate.toJSON() });
+      };
+      const renegotiate = () => {
+        if (pcRef.current !== pc) return;
+        if (role === "tutor") makeOffer();
+        else sendSignal("hello");
       };
       pc.onconnectionstatechange = () => {
         if (pcRef.current !== pc) return;
         setConnState(pc.connectionState);
-        if (pc.connectionState === "failed") {
-          if (role === "tutor") makeOffer();
-          else sendSignal("hello");
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+        if (pc.connectionState === "failed") renegotiate();
+        // A short network cut usually recovers by itself; a longer one is negotiated again.
+        else if (pc.connectionState === "disconnected") {
+          reconnectTimer = setTimeout(() => {
+            if (pc.connectionState === "disconnected") renegotiate();
+          }, RECONNECT_AFTER_MS);
         }
       };
       pcRef.current = pc;
@@ -419,9 +472,10 @@ export function Classroom(props: Props) {
     };
 
     const makeOffer = async () => {
-      const pc = createPc();
+      const forGen = gen + 1;
+      const pc = createPc(forGen);
       await pc.setLocalDescription(await pc.createOffer());
-      await sendSignal("offer", pc.localDescription!.toJSON());
+      await sendDescription(pc, "offer", forGen);
     };
 
     const flushCandidates = async (pc: RTCPeerConnection) => {
@@ -430,21 +484,22 @@ export function Classroom(props: Props) {
 
     const handle = async ({ type, payload }: Signal) => {
       const pc = pcRef.current;
+      const data = (payload ?? {}) as { gen?: number; desc?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
       if (type === "hello" && role === "tutor") {
         await makeOffer();
-      } else if (type === "offer" && role === "student") {
-        const fresh = createPc();
-        await fresh.setRemoteDescription(payload as RTCSessionDescriptionInit);
+      } else if (type === "offer" && role === "student" && data.desc && typeof data.gen === "number") {
+        const fresh = createPc(data.gen);
+        await fresh.setRemoteDescription(data.desc);
         for (const t of fresh.getTransceivers()) if (!t.sender.track) t.direction = "sendrecv";
         await flushCandidates(fresh);
         await fresh.setLocalDescription(await fresh.createAnswer());
-        await sendSignal("answer", fresh.localDescription!.toJSON());
-      } else if (type === "answer" && role === "tutor" && pc?.signalingState === "have-local-offer") {
-        await pc.setRemoteDescription(payload as RTCSessionDescriptionInit);
+        await sendDescription(fresh, "answer", data.gen);
+      } else if (type === "answer" && role === "tutor" && data.desc && data.gen === gen && pc?.signalingState === "have-local-offer") {
+        await pc.setRemoteDescription(data.desc);
         await flushCandidates(pc);
-      } else if (type === "candidate") {
-        if (pc?.remoteDescription) await pc.addIceCandidate(payload as RTCIceCandidateInit).catch(() => {});
-        else pending.push(payload as RTCIceCandidateInit);
+      } else if (type === "candidate" && data.candidate && data.gen === gen) {
+        if (pc?.remoteDescription) await pc.addIceCandidate(data.candidate).catch(() => {});
+        else pending.push(data.candidate);
       } else if (type === "bye") {
         pc?.close();
         pcRef.current = null;
@@ -511,25 +566,29 @@ export function Classroom(props: Props) {
             const spoken = data.transcript.filter((t) => t.speaker_id !== me.id).at(-1);
             if (spoken) setCaption({ text: spoken.text, at: Date.now() });
 
-            for (const signal of data.signals) await handle(signal).catch((err) => console.error("signal", signal.type, err));
+            // Handled in order but in the background, so polling goes on while an offer or answer gathers its candidates.
+            for (const signal of data.signals) signalChain = signalChain.then(() => handle(signal)).catch((err) => console.error("signal", signal.type, err));
             if (first) {
               first = false;
               await sendSignal("hello");
-              if (role === "tutor") await makeOffer();
+              if (role === "tutor") signalChain = signalChain.then(makeOffer).catch((err) => console.error("offer", err));
             }
           }
         } catch {
           // Network hiccup: keep polling.
         }
-        await sleep(POLL_MS);
+        // Faster while the call is not established, so the setup takes seconds, not tens of seconds.
+        await sleep(pcRef.current?.connectionState === "connected" ? POLL_MS : FAST_POLL_MS);
       }
     };
+    let signalChain = Promise.resolve();
     loop();
 
     const sayBye = () => navigator.sendBeacon(api, JSON.stringify({ kind: "signal", type: "bye" }));
     window.addEventListener("pagehide", sayBye);
     return () => {
       stopped = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       window.removeEventListener("pagehide", sayBye);
       sayBye();
       pcRef.current?.close();
@@ -728,6 +787,33 @@ export function Classroom(props: Props) {
     return () => clearTimeout(timer);
   }, [phase, end]);
   const connected = connState === "connected";
+
+  // Round-trip time and lost packets of the call, from the browser's own statistics.
+  const [weak, setWeak] = useState(false);
+  useEffect(() => {
+    // The chip only shows while connected; the next measurement replaces an old "weak".
+    if (!connected) return;
+    let last = { lost: 0, received: 0 };
+    const id = setInterval(async () => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      let rtt = 0;
+      let lost = 0;
+      let received = 0;
+      (await pc.getStats()).forEach((report) => {
+        if (report.type === "candidate-pair" && report.nominated && report.state === "succeeded") rtt = report.currentRoundTripTime ?? 0;
+        if (report.type === "inbound-rtp") {
+          lost += report.packetsLost ?? 0;
+          received += report.packetsReceived ?? 0;
+        }
+      });
+      const newLost = lost - last.lost;
+      const total = newLost + received - last.received;
+      last = { lost, received };
+      setWeak(rtt > WEAK_RTT_S || (total > 0 && newLost / total > WEAK_LOSS));
+    }, QUALITY_EVERY_MS);
+    return () => clearInterval(id);
+  }, [connected]);
   const stage = ownView ?? (boardOpen ? "board" : presentedId);
   const stageDoc = stage && stage !== "board" ? (documents.find((d) => d.id === stage) ?? null) : null;
   const onStage = stage === "board" || !!stageDoc;
@@ -882,6 +968,11 @@ export function Classroom(props: Props) {
             {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
             {connected ? t.connected : peerOnline ? t.connectingShort : t.waitingFor(otherFirst)}
           </span>
+          {connected && weak && (
+            <span className="chip bg-ochre-400/25 text-ochre-100" title={t.weakTitle} role="status">
+              <WifiOff size={13} /> {t.weak}
+            </span>
+          )}
           {canFullscreen && (
             <button
               onClick={toggleFullscreen}
