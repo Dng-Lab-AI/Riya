@@ -56,7 +56,13 @@ export type UserDoc = {
   email: string;
   passwordHash: string;
   role: Role;
-  status: "active" | "suspended";
+  // "suspended": until suspendedUntil (or until reactivated when absent); "blocked": for good.
+  status: "active" | "suspended" | "blocked";
+  suspendedUntil?: Date;
+  // Why the Riya team suspended or blocked the account (shown to the member when they try to log in).
+  moderation?: { reason: string; at: Date; by: ObjectId };
+  // Last time the member used the site (updated at most every few minutes).
+  lastSeenAt?: Date;
   country: string;
   avatarUrl: string;
   favorites: ObjectId[];
@@ -70,6 +76,20 @@ export type UserDoc = {
   // Interface language last chosen with the EN / FR switch (used for e-mails and lesson summaries).
   locale?: "en" | "fr";
   createdAt: Date;
+};
+
+// What an administrator did to a member's account (shown on the member's page of the admin site).
+export type AdminLogAction = "approve" | "hide" | "ask_changes" | "suspend" | "block" | "reactivate" | "delete" | "role" | "message";
+export type AdminLogDoc = {
+  _id: ObjectId;
+  adminId: ObjectId;
+  userId: ObjectId;
+  action: AdminLogAction;
+  note: string;
+  // Name and e-mail at the time, kept for deleted accounts.
+  userName: string;
+  userEmail: string;
+  at: Date;
 };
 
 // Single-use links sent by e-mail. Only a hash of the token is stored.
@@ -273,6 +293,7 @@ export type Collections = {
   calendarBlocks: Collection<CalendarBlockDoc>;
   bookingIntents: Collection<BookingIntentDoc>;
   profileViews: Collection<ProfileViewDoc>;
+  adminLogs: Collection<AdminLogDoc>;
   files: GridFSBucket;
   // Tutors' presentation videos (metadata: { tutorId, contentType }).
   videos: GridFSBucket;
@@ -301,6 +322,7 @@ function collectionsOf(db: Db): Collections {
     calendarBlocks: db.collection("calendar_blocks"),
     bookingIntents: db.collection("booking_intents"),
     profileViews: db.collection("profile_views"),
+    adminLogs: db.collection("admin_logs"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     videos: new GridFSBucket(db, { bucketName: "tutor_videos" }),
     meta: db.collection("meta"),
@@ -350,6 +372,9 @@ async function init(): Promise<Collections> {
     c.messages.createIndex({ kind: 1, senderId: 1, recipientId: 1, createdAt: -1 }, { partialFilterExpression: { kind: { $exists: true } } }),
     c.bookingIntents.createIndex({ studentId: 1, tutorId: 1, completedAt: 1, notifiedAt: 1 }),
     c.profileViews.createIndex({ tutorId: 1, day: 1, visitor: 1 }, { unique: true }),
+    c.adminLogs.createIndex({ userId: 1, at: -1 }),
+    c.adminLogs.createIndex({ at: -1 }),
+    c.users.createIndex({ lastSeenAt: -1 }),
     c.profileViews.createIndex({ at: 1 }, { expireAfterSeconds: 400 * 24 * 60 * 60 }),
     c.bookingIntents.createIndex({ completedAt: 1, notifiedAt: 1, lastActivityAt: 1 }),
     // Old intents are only history: drop them after 60 days.
@@ -366,7 +391,7 @@ async function init(): Promise<Collections> {
 // The connection is kept on globalThis so it survives hot reloads in development.
 // Bump this whenever a collection or index is added: a server already running then
 // rebuilds its cache instead of serving an object that lacks the new collection.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const globalForDb = globalThis as unknown as { riyaDb?: Promise<Collections>; riyaDbVersion?: number };
 

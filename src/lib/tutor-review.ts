@@ -3,7 +3,7 @@ import { DEFAULT_LOCALE, defineMessages, type Locale } from "@/i18n";
 import { languageName } from "@/i18n/catalog";
 import { getDb, type ObjectId, type TutorProfile, type UserDoc } from "./db";
 import { sendActionEmail } from "./mail";
-import { siteOrigin } from "./site";
+import { adminOrigin, publicOrigin } from "./site";
 
 // Review of new tutor profiles by the Riya team: a tutor only appears in the search once approved.
 // When a profile is ready, the team is told (e-mail and a counter in the menu); the tutor is told
@@ -87,7 +87,7 @@ export async function submitForReview(tutorId: ObjectId) {
   const [admins, names, origin] = await Promise.all([
     db.users.find({ role: "admin", status: "active" }, { projection: { email: 1, locale: 1 } }).toArray(),
     languageNameMap(),
-    siteOrigin(),
+    adminOrigin(),
   ]);
   for (const admin of admins) {
     const locale: Locale = admin.locale ?? DEFAULT_LOCALE;
@@ -99,7 +99,7 @@ export async function submitForReview(tutorId: ObjectId) {
       greeting: t.adminGreeting,
       intro: t.adminIntro(user.name, languages),
       button: t.adminButton,
-      url: `${origin}/admin#a-valider`,
+      url: `${origin}/#a-valider`,
       outro: t.adminOutro,
       locale,
     });
@@ -110,7 +110,7 @@ export async function submitForReview(tutorId: ObjectId) {
 export async function tellTutorDecision(user: Pick<UserDoc, "_id" | "name" | "email" | "locale">, decision: { approved: true } | { approved: false; note: string }) {
   const locale: Locale = user.locale ?? DEFAULT_LOCALE;
   const t = M[locale];
-  const origin = await siteOrigin();
+  const origin = await publicOrigin();
   await safeSend(
     decision.approved
       ? {
