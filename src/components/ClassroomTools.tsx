@@ -3,7 +3,54 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Bot, Check, Eraser, Loader2, Sparkles, Trash2, X } from "lucide-react";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
 import { BOARD_COLORS } from "@/lib/constants";
+
+const M = defineMessages({
+  en: {
+    colour: (c: string) => `Colour ${c}`, thickness: (w: number) => `Thickness ${w}`, eraser: "Eraser", clearAll: "Clear all",
+    hideQuiz: "Hide the quiz", quickQuiz: "Quick quiz", studentRight: "Your student got it right!", studentWrong: "Your student got it wrong.",
+    right: "Well done, that's right! 🎉", wrong: "Not quite…", waiting: "Waiting for your student's answer…",
+    noSuggestion: "The assistant couldn't suggest a question.", live: "Quiz in progress:", waitingAnswer: "Waiting for the answer…",
+    answer: (a: string, ok: boolean) => `Answer: ${a} ${ok ? "✔" : "✘"}`, end: "End this quiz", suggest: "Suggest a question with AI",
+    question: "Question (e.g. How do you say “thank you”?)", correctAnswer: (l: string) => `Correct answer: ${l}`,
+    option: (l: string, optional: boolean) => `Answer ${l}${optional ? " (optional)" : ""}`, explanation: "Explanation shown after the answer (optional)",
+    tick: "Tick the correct answer.", launching: "Launching…", launch: "Launch the quiz",
+    refused: "The browser refused speech recognition.", unsupported: "Your browser doesn't recognise this language. Choose another one.",
+    noAnswer: "The assistant couldn't answer.", accepted: "transcription accepted", declined: "transcription declined", pending: "waiting for an answer",
+    title: "Riya AI assistant", intro: "With both your agreement, it listens to the session to show captions and prepare a full summary of the lesson.",
+    disable: "Turn off the assistant", enable: "Turn on the assistant", tutorCan: "Your tutor can turn it on.", you: "You:", stop: "Stop", accept: "Accept",
+    noSpeech: "Your browser can't transcribe speech. Use Chrome or Edge.", transcribing: "Transcribing your voice", spoken: "Spoken language",
+    speechNote: "Speech recognition doesn't know every African language yet: choose the language you speak most during the session.",
+    captions: (name: string) => `${name}'s captions`, aiOff: "AI questions aren't enabled on the platform yet.",
+    examples: "A question during the lesson? “What does asante mean?”, “How do you pronounce…?”", askPlaceholder: "Ask the assistant…", ask: "Ask",
+    consentTitle: (name: string) => `${name} turned on the AI assistant`,
+    consentText: "It transcribes what you say to show captions and write your lesson summary. The transcript stays private between you and your tutor. You can stop at any time.",
+    decline: "Decline",
+  },
+  fr: {
+    colour: (c: string) => `Couleur ${c}`, thickness: (w: number) => `Épaisseur ${w}`, eraser: "Gomme", clearAll: "Tout effacer",
+    hideQuiz: "Masquer le quiz", quickQuiz: "Quiz éclair", studentRight: "Bonne réponse de votre élève !", studentWrong: "Votre élève s'est trompé.",
+    right: "Bravo, c'est juste ! 🎉", wrong: "Pas tout à fait…", waiting: "En attente de la réponse de votre élève…",
+    noSuggestion: "L'assistant n'a pas pu proposer de question.", live: "Quiz en cours :", waitingAnswer: "En attente de la réponse…",
+    answer: (a: string, ok: boolean) => `Réponse : ${a} ${ok ? "✔" : "✘"}`, end: "Terminer ce quiz", suggest: "Proposer une question avec l'IA",
+    question: "Question (ex. : Comment dit-on « merci » ?)", correctAnswer: (l: string) => `Bonne réponse : ${l}`,
+    option: (l: string, optional: boolean) => `Réponse ${l}${optional ? " (facultative)" : ""}`, explanation: "Explication affichée après la réponse (facultatif)",
+    tick: "Cochez la bonne réponse.", launching: "Lancement…", launch: "Lancer le quiz",
+    refused: "Le navigateur a refusé la reconnaissance vocale.", unsupported: "Cette langue n'est pas reconnue par votre navigateur. Choisissez-en une autre.",
+    noAnswer: "L'assistant n'a pas pu répondre.", accepted: "transcription acceptée", declined: "transcription refusée", pending: "en attente de réponse",
+    title: "Assistant IA Riya", intro: "Avec votre accord à tous les deux, il écoute la séance pour afficher des sous-titres et préparer un résumé complet du cours.",
+    disable: "Désactiver l'assistant", enable: "Activer l'assistant", tutorCan: "Votre tuteur peut l'activer.", you: "Vous :", stop: "Arrêter", accept: "Accepter",
+    noSpeech: "Votre navigateur ne sait pas transcrire la voix. Utilisez Chrome ou Edge.", transcribing: "Transcription de votre voix en cours", spoken: "Langue parlée",
+    speechNote: "La reconnaissance vocale ne connaît pas encore toutes les langues africaines : choisissez la langue que vous parlez le plus pendant la séance.",
+    captions: (name: string) => `Sous-titres de ${name}`, aiOff: "Les questions à l'IA ne sont pas encore activées sur la plateforme.",
+    examples: "Une question pendant le cours ? « Que veut dire asante ? », « Comment se prononce… ? »", askPlaceholder: "Demander à l'assistant…", ask: "Demander",
+    consentTitle: (name: string) => `${name} a activé l'assistant IA`,
+    consentText: "Il transcrit ce que vous dites pour afficher des sous-titres et rédiger le résumé de votre cours. La transcription reste privée entre vous et votre tuteur. Vous pouvez arrêter à tout moment.",
+    decline: "Refuser",
+  },
+});
 
 // Interactive pieces of the classroom: whiteboard, floating reactions, confetti,
 // quizzes, speech transcription and the AI assistant panel.
@@ -36,6 +83,7 @@ export function Whiteboard({ strokes, onStroke, onClear }: { strokes: Stroke[]; 
   const [color, setColor] = useState(BOARD_COLORS[0]);
   const [width, setWidth] = useState(4);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const t = M[useLocale()];
 
   // Keep a 16:10 drawing area that fits the stage, so both screens show the same board.
   useEffect(() => {
@@ -94,16 +142,16 @@ export function Whiteboard({ strokes, onStroke, onClear }: { strokes: Stroke[]; 
     <div className="flex h-full flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {BOARD_COLORS.filter((c) => c !== ERASER).map((c) => (
-          <button key={c} onClick={() => { setColor(c); if (width > 12) setWidth(4); }} aria-label={`Couleur ${c}`} className={`h-7 w-7 rounded-full ring-2 ${color === c ? "ring-ochre-300" : "ring-white/20"}`} style={{ background: c }} />
+          <button key={c} onClick={() => { setColor(c); if (width > 12) setWidth(4); }} aria-label={t.colour(c)} className={`h-7 w-7 rounded-full ring-2 ${color === c ? "ring-ochre-300" : "ring-white/20"}`} style={{ background: c }} />
         ))}
         <span className="mx-1 h-6 w-px bg-white/20" />
         {[2, 4, 8].map((w) => (
-          <button key={w} onClick={() => { setWidth(w); if (color === ERASER) setColor(BOARD_COLORS[0]); }} aria-label={`Épaisseur ${w}`} className={`flex h-7 w-7 items-center justify-center rounded-full ${width === w && color !== ERASER ? "bg-white/20" : "hover:bg-white/10"}`}>
+          <button key={w} onClick={() => { setWidth(w); if (color === ERASER) setColor(BOARD_COLORS[0]); }} aria-label={t.thickness(w)} className={`flex h-7 w-7 items-center justify-center rounded-full ${width === w && color !== ERASER ? "bg-white/20" : "hover:bg-white/10"}`}>
             <span className="rounded-full bg-white" style={{ width: w + 2, height: w + 2 }} />
           </button>
         ))}
-        <button onClick={() => { setColor(ERASER); setWidth(24); }} className={`flex items-center gap-1 rounded-full px-3 py-1 ${color === ERASER ? "bg-white/20" : "hover:bg-white/10"}`}><Eraser size={15} /> Gomme</button>
-        {onClear && <button onClick={onClear} className="ml-auto flex items-center gap-1 rounded-full px-3 py-1 hover:bg-white/10"><Trash2 size={15} /> Tout effacer</button>}
+        <button onClick={() => { setColor(ERASER); setWidth(24); }} className={`flex items-center gap-1 rounded-full px-3 py-1 ${color === ERASER ? "bg-white/20" : "hover:bg-white/10"}`}><Eraser size={15} /> {t.eraser}</button>
+        {onClear && <button onClick={onClear} className="ml-auto flex items-center gap-1 rounded-full px-3 py-1 hover:bg-white/10"><Trash2 size={15} /> {t.clearAll}</button>}
       </div>
       <div ref={wrapRef} className="flex min-h-0 flex-1 items-center justify-center">
         <canvas
@@ -193,6 +241,7 @@ export type QuizState = {
 };
 
 export function QuizCard({ quiz, role, onAnswer, onClose }: { quiz: QuizState; role: "student" | "tutor"; onAnswer: (index: number) => void; onClose: () => void }) {
+  const t = M[useLocale()];
   const answered = quiz.answerIndex !== null;
   const correct = answered && quiz.correctIndex !== null && quiz.answerIndex === quiz.correctIndex;
   return (
@@ -203,8 +252,8 @@ export function QuizCard({ quiz, role, onAnswer, onClose }: { quiz: QuizState; r
       transition={{ type: "spring", stiffness: 260, damping: 22 }}
       className="relative w-full max-w-lg rounded-3xl bg-sand-50 p-6 text-earth-900 shadow-2xl"
     >
-      <button onClick={onClose} aria-label="Masquer le quiz" className="absolute right-3 top-3 rounded-full p-1.5 hover:bg-sand-200"><X size={18} /></button>
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-clay-600">Quiz éclair</p>
+      <button onClick={onClose} aria-label={t.hideQuiz} className="absolute right-3 top-3 rounded-full p-1.5 hover:bg-sand-200"><X size={18} /></button>
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-clay-600">{t.quickQuiz}</p>
       <h3 className="mt-2 font-display text-2xl font-semibold">{quiz.question}</h3>
       <div className="mt-5 grid gap-2">
         {quiz.options.map((option, i) => {
@@ -231,13 +280,13 @@ export function QuizCard({ quiz, role, onAnswer, onClose }: { quiz: QuizState; r
         {answered && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 overflow-hidden">
             <p className={`font-display text-xl font-semibold ${correct ? "text-forest-700" : "text-clay-700"}`}>
-              {role === "tutor" ? (correct ? "Bonne réponse de votre élève !" : "Votre élève s'est trompé.") : correct ? "Bravo, c'est juste ! 🎉" : "Pas tout à fait…"}
+              {role === "tutor" ? (correct ? t.studentRight : t.studentWrong) : correct ? t.right : t.wrong}
             </p>
             {quiz.explanation && <p className="mt-1 text-sm text-earth-700">{quiz.explanation}</p>}
           </motion.div>
         )}
       </AnimatePresence>
-      {!answered && role === "tutor" && <p className="mt-4 flex items-center gap-2 text-sm text-earth-500"><Loader2 size={15} className="animate-spin" /> En attente de la réponse de votre élève…</p>}
+      {!answered && role === "tutor" && <p className="mt-4 flex items-center gap-2 text-sm text-earth-500"><Loader2 size={15} className="animate-spin" /> {t.waiting}</p>}
     </motion.div>
   );
 }
@@ -246,6 +295,7 @@ type Draft = { question: string; options: string[]; correctIndex: number; explan
 const EMPTY_DRAFT: Draft = { question: "", options: ["", "", "", ""], correctIndex: 0, explanation: "" };
 
 export function QuizComposer({ api, aiAvailable, live, onLaunch, onEnd }: { api: string; aiAvailable: boolean; live: QuizState | null; onLaunch: (d: Draft) => Promise<string | null>; onEnd: () => void }) {
+  const t = M[useLocale()];
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [busy, setBusy] = useState<"ai" | "launch" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +308,7 @@ export function QuizComposer({ api, aiAvailable, live, onLaunch, onEnd }: { api:
     if (res?.ok && data?.quiz) {
       const q = data.quiz as Draft;
       setDraft({ question: q.question, options: [...q.options, "", "", "", ""].slice(0, 4), correctIndex: q.correctIndex, explanation: q.explanation });
-    } else setError(data?.error ?? "L'assistant n'a pas pu proposer de question.");
+    } else setError(data?.error ?? t.noSuggestion);
     setBusy(null);
   };
 
@@ -275,30 +325,30 @@ export function QuizComposer({ api, aiAvailable, live, onLaunch, onEnd }: { api:
     <div className="space-y-3 text-sm">
       {live && (
         <div className="rounded-xl bg-white/5 p-3">
-          <p className="font-semibold">Quiz en cours : {live.question}</p>
+          <p className="font-semibold">{t.live} {live.question}</p>
           <p className="mt-1 text-sand-300">
-            {live.answerIndex === null ? "En attente de la réponse…" : `Réponse : ${live.options[live.answerIndex]} ${live.answerIndex === live.correctIndex ? "✔" : "✘"}`}
+            {live.answerIndex === null ? t.waitingAnswer : t.answer(live.options[live.answerIndex], live.answerIndex === live.correctIndex)}
           </p>
-          <button onClick={onEnd} className="mt-2 rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/20">Terminer ce quiz</button>
+          <button onClick={onEnd} className="mt-2 rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/20">{t.end}</button>
         </div>
       )}
       {aiAvailable && (
         <button onClick={suggest} disabled={!!busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-ochre-400 px-3 py-2 font-semibold text-forest-900 hover:bg-ochre-300 disabled:opacity-60">
-          {busy === "ai" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Proposer une question avec l&apos;IA
+          {busy === "ai" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {t.suggest}
         </button>
       )}
-      <input value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} placeholder="Question (ex. : Comment dit-on « merci » ?)" className={field} />
+      <input value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} placeholder={t.question} className={field} />
       {draft.options.map((option, i) => (
         <label key={i} className="flex items-center gap-2">
-          <input type="radio" name="correct" checked={draft.correctIndex === i} onChange={() => setDraft({ ...draft, correctIndex: i })} className="accent-ochre-400" aria-label={`Bonne réponse : ${String.fromCharCode(65 + i)}`} />
-          <input value={option} onChange={(e) => setDraft({ ...draft, options: draft.options.map((o, j) => (j === i ? e.target.value : o)) })} placeholder={`Réponse ${String.fromCharCode(65 + i)}${i > 1 ? " (facultative)" : ""}`} className={field} />
+          <input type="radio" name="correct" checked={draft.correctIndex === i} onChange={() => setDraft({ ...draft, correctIndex: i })} className="accent-ochre-400" aria-label={t.correctAnswer(String.fromCharCode(65 + i))} />
+          <input value={option} onChange={(e) => setDraft({ ...draft, options: draft.options.map((o, j) => (j === i ? e.target.value : o)) })} placeholder={t.option(String.fromCharCode(65 + i), i > 1)} className={field} />
         </label>
       ))}
-      <input value={draft.explanation} onChange={(e) => setDraft({ ...draft, explanation: e.target.value })} placeholder="Explication affichée après la réponse (facultatif)" className={field} />
-      <p className="text-xs text-sand-300">Cochez la bonne réponse.</p>
+      <input value={draft.explanation} onChange={(e) => setDraft({ ...draft, explanation: e.target.value })} placeholder={t.explanation} className={field} />
+      <p className="text-xs text-sand-300">{t.tick}</p>
       {error && <p className="rounded-lg bg-clay-600/30 p-2">{error}</p>}
       <button onClick={launch} disabled={!!busy || !draft.question.trim() || draft.options.filter((o) => o.trim()).length < 2} className="w-full rounded-xl bg-clay-600 px-3 py-2 font-semibold hover:bg-clay-700 disabled:opacity-50">
-        {busy === "launch" ? "Lancement…" : "Lancer le quiz"}
+        {busy === "launch" ? t.launching : t.launch}
       </button>
     </div>
   );
@@ -334,6 +384,7 @@ export function useSpeechSupported() {
 export function useTranscription(active: boolean, lang: string, onFinal: (text: string) => void) {
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const t = M[useLocale()];
   const onFinalRef = useRef(onFinal);
   useEffect(() => {
     onFinalRef.current = onFinal;
@@ -361,10 +412,10 @@ export function useTranscription(active: boolean, lang: string, onFinal: (text: 
     rec.onerror = (event) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         stopped = true;
-        setError("Le navigateur a refusé la reconnaissance vocale.");
+        setError(t.refused);
       } else if (event.error === "language-not-supported") {
         stopped = true;
-        setError("Cette langue n'est pas reconnue par votre navigateur. Choisissez-en une autre.");
+        setError(t.unsupported);
       }
     };
     // Browsers stop listening after a silence; restart until the assistant is switched off.
@@ -380,7 +431,7 @@ export function useTranscription(active: boolean, lang: string, onFinal: (text: 
     try {
       rec.start();
     } catch (err) {
-      console.warn("Reconnaissance vocale", err);
+      console.warn("Speech recognition", err);
     }
     return () => {
       stopped = true;
@@ -389,7 +440,7 @@ export function useTranscription(active: boolean, lang: string, onFinal: (text: 
       setInterim("");
       setError(null);
     };
-  }, [active, lang]);
+  }, [active, lang, t]);
 
   return { interim, error };
 }
@@ -416,6 +467,7 @@ export function AssistantPanel(props: {
   onConsent: (accepted: boolean) => void;
 }) {
   const { api, role, otherName, state, aiAvailable, speechSupported, transcribing, speechError, lang, langs, onLang, captions, onCaptions, onToggle, onConsent } = props;
+  const t = M[useLocale()];
   const [question, setQuestion] = useState("");
   const [answers, setAnswers] = useState<{ q: string; a: string | null }[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
@@ -432,11 +484,11 @@ export function AssistantPanel(props: {
     setAnswers((list) => [...list, { q, a: null }]);
     const res = await fetch(`${api}/assistant`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "ask", question: q }) }).catch(() => null);
     const data = await res?.json().catch(() => null);
-    const answer = res?.ok ? data.answer : (data?.error ?? "L'assistant n'a pas pu répondre.");
+    const answer = res?.ok ? data.answer : (data?.error ?? t.noAnswer);
     setAnswers((list) => list.map((item, i) => (i === list.length - 1 && item.a === null ? { ...item, a: answer } : item)));
-  }, [api, question]);
+  }, [api, question, t]);
 
-  const consentLabel = (c: boolean | null) => (c === true ? "transcription acceptée" : c === false ? "transcription refusée" : "en attente de réponse");
+  const consentLabel = (c: boolean | null) => (c === true ? t.accepted : c === false ? t.declined : t.pending);
 
   return (
     <div className="flex h-full flex-col">
@@ -444,16 +496,16 @@ export function AssistantPanel(props: {
         <div className="flex items-start gap-3 rounded-xl bg-white/5 p-3">
           <Bot size={22} className="mt-0.5 shrink-0 text-ochre-300" />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold">Assistant IA Riya</p>
+            <p className="font-semibold">{t.title}</p>
             <p className="text-xs text-sand-300">
-              Avec votre accord à tous les deux, il écoute la séance pour afficher des sous-titres et préparer un résumé complet du cours.
+              {t.intro}
             </p>
             {role === "tutor" ? (
               <button onClick={() => onToggle(!state.enabled)} className={`mt-2 rounded-full px-3 py-1 text-xs font-semibold ${state.enabled ? "bg-white/10 hover:bg-white/20" : "bg-ochre-400 text-forest-900 hover:bg-ochre-300"}`}>
-                {state.enabled ? "Désactiver l'assistant" : "Activer l'assistant"}
+                {state.enabled ? t.disable : t.enable}
               </button>
             ) : !state.enabled ? (
-              <p className="mt-2 text-xs text-sand-300">Votre tuteur peut l&apos;activer.</p>
+              <p className="mt-2 text-xs text-sand-300">{t.tutorCan}</p>
             ) : null}
           </div>
         </div>
@@ -461,37 +513,37 @@ export function AssistantPanel(props: {
         {state.enabled && (
           <div className="space-y-2 rounded-xl bg-white/5 p-3 text-xs">
             <p className="flex items-center justify-between gap-2">
-              <span>Vous : {consentLabel(state.myConsent)}</span>
-              <button onClick={() => onConsent(!state.myConsent)} className="rounded-full bg-white/10 px-2.5 py-1 hover:bg-white/20">{state.myConsent ? "Arrêter" : "Accepter"}</button>
+              <span>{t.you} {consentLabel(state.myConsent)}</span>
+              <button onClick={() => onConsent(!state.myConsent)} className="rounded-full bg-white/10 px-2.5 py-1 hover:bg-white/20">{state.myConsent ? t.stop : t.accept}</button>
             </p>
-            <p>{otherName.split(" ")[0]} : {consentLabel(state.otherConsent)}</p>
+            <p>{otherName.split(" ")[0]}: {consentLabel(state.otherConsent)}</p>
             {state.myConsent && (
               <>
-                {!speechSupported && <p className="rounded-lg bg-clay-600/30 p-2">Votre navigateur ne sait pas transcrire la voix. Utilisez Chrome ou Edge.</p>}
+                {!speechSupported && <p className="rounded-lg bg-clay-600/30 p-2">{t.noSpeech}</p>}
                 {speechError && <p className="rounded-lg bg-clay-600/30 p-2">{speechError}</p>}
-                {transcribing && <p className="flex items-center gap-1.5 text-forest-100"><span className="h-2 w-2 animate-pulse rounded-full bg-clay-500" /> Transcription de votre voix en cours</p>}
+                {transcribing && <p className="flex items-center gap-1.5 text-forest-100"><span className="h-2 w-2 animate-pulse rounded-full bg-clay-500" /> {t.transcribing}</p>}
                 <label className="flex items-center justify-between gap-2">
-                  <span>Langue parlée</span>
+                  <span>{t.spoken}</span>
                   <select value={lang} onChange={(e) => onLang(e.target.value)} className="rounded-lg bg-white/10 px-2 py-1 outline-none">
                     {langs.map((l) => <option key={l.code} value={l.code} className="text-earth-900">{l.label}</option>)}
                   </select>
                 </label>
-                <p className="text-sand-300">La reconnaissance vocale ne connaît pas encore toutes les langues africaines : choisissez la langue que vous parlez le plus pendant la séance.</p>
+                <p className="text-sand-300">{t.speechNote}</p>
               </>
             )}
           </div>
         )}
         <label className="flex items-center justify-between gap-2 text-xs">
-          <span>Sous-titres de {otherName.split(" ")[0]}</span>
+          <span>{t.captions(otherName.split(" ")[0])}</span>
           <input type="checkbox" checked={captions} onChange={(e) => onCaptions(e.target.checked)} className="accent-ochre-400" disabled={!state.enabled} />
         </label>
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
         {!aiAvailable ? (
-          <p className="text-center text-sand-300">Les questions à l&apos;IA ne sont pas encore activées sur la plateforme.</p>
+          <p className="text-center text-sand-300">{t.aiOff}</p>
         ) : answers.length === 0 ? (
-          <p className="text-center text-sand-300">Une question pendant le cours ? « Que veut dire <em>asante</em> ? », « Comment se prononce… ? »</p>
+          <p className="text-center text-sand-300">{t.examples}</p>
         ) : (
           answers.map((item, i) => (
             <div key={i} className="space-y-1.5">
@@ -506,8 +558,8 @@ export function AssistantPanel(props: {
       </div>
       {aiAvailable && (
         <form onSubmit={ask} className="flex gap-2 border-t border-white/10 p-3">
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Demander à l'assistant…" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-sm outline-none placeholder:text-sand-300" />
-          <button className="rounded-full bg-ochre-400 p-2.5 text-forest-900 hover:bg-ochre-300" aria-label="Demander"><Sparkles size={16} /></button>
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={t.askPlaceholder} className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-sm outline-none placeholder:text-sand-300" />
+          <button className="rounded-full bg-ochre-400 p-2.5 text-forest-900 hover:bg-ochre-300" aria-label={t.ask}><Sparkles size={16} /></button>
         </form>
       )}
     </div>
@@ -515,15 +567,16 @@ export function AssistantPanel(props: {
 }
 
 export function ConsentPrompt({ tutorName, onAnswer }: { tutorName: string; onAnswer: (accepted: boolean) => void }) {
+  const t = M[useLocale()];
   return (
     <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="absolute inset-x-3 top-3 z-40 mx-auto max-w-lg rounded-2xl bg-sand-50 p-5 text-earth-900 shadow-2xl">
-      <p className="flex items-center gap-2 font-semibold"><Bot size={20} className="text-clay-600" /> {tutorName} a activé l&apos;assistant IA</p>
+      <p className="flex items-center gap-2 font-semibold"><Bot size={20} className="text-clay-600" /> {t.consentTitle(tutorName)}</p>
       <p className="mt-1 text-sm text-earth-700">
-        Il transcrit ce que vous dites pour afficher des sous-titres et rédiger le résumé de votre cours. La transcription reste privée entre vous et votre tuteur. Vous pouvez arrêter à tout moment.
+        {t.consentText}
       </p>
       <div className="mt-4 flex gap-2">
-        <button onClick={() => onAnswer(true)} className="btn-primary">Accepter</button>
-        <button onClick={() => onAnswer(false)} className="btn-outline">Refuser</button>
+        <button onClick={() => onAnswer(true)} className="btn-primary">{t.accept}</button>
+        <button onClick={() => onAnswer(false)} className="btn-outline">{t.decline}</button>
       </div>
     </motion.div>
   );

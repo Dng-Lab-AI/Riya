@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { intlLocale, type Locale } from "@/i18n";
+import { useLocale } from "@/i18n/client";
 import type { Domain, Point } from "@/lib/progress";
 
 // Animations always start from the same state on the server and in the browser;
@@ -17,15 +19,16 @@ const GRID = "var(--color-sand-200)";
 const SURFACE = "#ffffff";
 
 type Format = (value: number) => string;
-const number = (v: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v);
-
 // Server pages cannot hand functions to these client charts, so they name a unit instead.
 export type Unit = "nombre" | "euro" | "cours";
-const FORMATS: Record<Unit, Format> = {
-  nombre: number,
-  euro: (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: v % 1 ? 2 : 0 }).format(v),
-  cours: (v) => `${number(v)} cours`,
-};
+function formats(locale: Locale): Record<Unit, Format> {
+  const number = (v: number) => new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(v);
+  return {
+    nombre: number,
+    euro: (v) => new Intl.NumberFormat(intlLocale(locale), { style: "currency", currency: "EUR", maximumFractionDigits: v % 1 ? 2 : 0 }).format(v),
+    cours: (v) => (locale === "en" ? `${number(v)} lesson${v === 1 ? "" : "s"}` : `${number(v)} cours`),
+  };
+}
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -77,7 +80,8 @@ const showLabel = (i: number, n: number) => {
 };
 
 export function ColumnChart({ data, unit = "nombre", height = 200, label }: { data: Point[]; unit?: Unit; height?: number; label: string }) {
-  const format = FORMATS[unit];
+  const locale = useLocale();
+  const format = formats(locale)[unit];
   const { ref, width } = useWidth<HTMLDivElement>();
   const reduce = useReducedMotion();
   const [active, setActive] = useState<number | null>(null);
@@ -149,7 +153,8 @@ export function ColumnChart({ data, unit = "nombre", height = 200, label }: { da
 }
 
 export function AreaChart({ data, unit = "nombre", height = 200, label, domain }: { data: Point[]; unit?: Unit; height?: number; label: string; domain?: [number, number] }) {
-  const format = FORMATS[unit];
+  const locale = useLocale();
+  const format = formats(locale)[unit];
   const { ref, width } = useWidth<HTMLDivElement>();
   const reduce = useReducedMotion();
   const [active, setActive] = useState<number | null>(null);
@@ -214,7 +219,7 @@ export function AreaChart({ data, unit = "nombre", height = 200, label, domain }
           </svg>
         )}
         {active !== null && width > 0 && (
-          <Tooltip x={xOf(active)} y={activeValue === null ? base : scale(activeValue)} value={activeValue === null ? "Pas de donnée" : format(activeValue)} label={data[active].hint ?? data[active].label} />
+          <Tooltip x={xOf(active)} y={activeValue === null ? base : scale(activeValue)} value={activeValue === null ? (locale === "en" ? "No data" : "Pas de donnée") : format(activeValue)} label={data[active].hint ?? data[active].label} />
         )}
       </div>
       <DataTable data={data} format={format} caption={label} />
@@ -224,7 +229,8 @@ export function AreaChart({ data, unit = "nombre", height = 200, label, domain }
 
 // Ranked horizontal bars, largest first, each value written at the tip.
 export function BarList({ data, unit = "nombre" }: { data: Point[]; unit?: Unit }) {
-  const format = FORMATS[unit];
+  const locale = useLocale();
+  const format = formats(locale)[unit];
   const reduce = useReducedMotion();
   const max = Math.max(...data.map((d) => d.value ?? 0), 1);
   return (
@@ -276,9 +282,10 @@ export function DomainMeters({ domains }: { domains: Domain[] }) {
 }
 
 function DataTable({ data, format, caption }: { data: Point[]; format: Format; caption: string }) {
+  const en = useLocale() === "en";
   return (
     <details className="mt-2 text-sm">
-      <summary className="cursor-pointer text-xs font-medium text-earth-500 hover:text-earth-800">Voir les données</summary>
+      <summary className="cursor-pointer text-xs font-medium text-earth-500 hover:text-earth-800">{en ? "See the data" : "Voir les données"}</summary>
       <table className="mt-2 w-full text-left">
         <caption className="sr-only">{caption}</caption>
         <tbody className="divide-y divide-sand-200">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, LogOut } from "lucide-react";
+import { useLocale } from "@/i18n/client";
 import { logout } from "@/lib/actions/auth";
 import { Avatar } from "./ui";
 
@@ -31,6 +32,7 @@ export function useDismiss<T extends HTMLElement>(open: boolean, close: () => vo
 
 export function AccountMenu({ name, avatarUrl, links }: { name: string; avatarUrl: string; links: { href: string; label: string }[] }) {
   const [open, setOpen] = useState(false);
+  const locale = useLocale();
   const ref = useDismiss<HTMLDivElement>(open, useCallback(() => setOpen(false), []));
 
   return (
@@ -55,7 +57,7 @@ export function AccountMenu({ name, avatarUrl, links }: { name: string; avatarUr
           ))}
           <form action={logout} className="mt-1.5 border-t border-sand-200 pt-1.5">
             <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-clay-700 hover:bg-clay-50">
-              <LogOut size={16} /> Se déconnecter
+              <LogOut size={16} /> {locale === "fr" ? "Se déconnecter" : "Log out"}
             </button>
           </form>
         </div>

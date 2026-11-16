@@ -2,15 +2,33 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { BellRing, MessageCircleReply, Send } from "lucide-react";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
 import { sendMessage } from "@/lib/actions/community";
 import type { Message } from "@/lib/queries";
 import { LocalDateTime } from "./client";
 
 const POLL_MS = 3000;
 
+const M = defineMessages({
+  en: {
+    interestReply: (name: string) => `Hello ${name}, thank you for your interest in my profile! What are your goals? I'd be glad to welcome you for a first lesson.`,
+    bookingReply: (name: string) => `Hello ${name}, I saw you wanted to book a lesson with me. Do you have any questions? If the time doesn't suit you, tell me when you're available.`,
+    first: (name: string) => `Send your first message to ${name}.`, interested: "Student interested in your profile", unfinished: "Unfinished booking",
+    writeTo: (name: string) => `Write to ${name}`, yourMessage: "Your message", placeholder: "Write your message…", send: "Send",
+  },
+  fr: {
+    interestReply: (name: string) => `Bonjour ${name}, merci pour l'intérêt que vous portez à mon profil ! Quels sont vos objectifs ? Je serais ravi·e de vous accueillir pour un premier cours.`,
+    bookingReply: (name: string) => `Bonjour ${name}, j'ai vu que vous vouliez réserver un cours avec moi. Avez-vous une question ? Si l'horaire ne vous convient pas, dites-moi quand vous êtes disponible.`,
+    first: (name: string) => `Envoyez votre premier message à ${name}.`, interested: "Élève intéressé·e par votre profil", unfinished: "Réservation non terminée",
+    writeTo: (name: string) => `Écrire à ${name}`, yourMessage: "Votre message", placeholder: "Écrivez votre message…", send: "Envoyer",
+  },
+});
+
 // A conversation that updates on its own: it polls for new messages and marks them read,
 // so neither side has to reload. Sending pushes a poll right away, so it feels instant.
 export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: string; otherFirstName: string; me: string; initial: Message[] }) {
+  const t = M[useLocale()];
   const [messages, setMessages] = useState<Message[]>(initial);
   const [error, setError] = useState<string>();
   const [pending, startSending] = useTransition();
@@ -63,10 +81,7 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
     const field = textarea.current;
     if (!field) return;
     if (!field.value.trim()) {
-      field.value =
-        kind === "interest"
-          ? `Bonjour ${otherFirstName}, merci pour l'intérêt que vous portez à mon profil ! Quels sont vos objectifs ? Je serais ravi·e de vous accueillir pour un premier cours.`
-          : `Bonjour ${otherFirstName}, j'ai vu que vous vouliez réserver un cours avec moi. Avez-vous une question ? Si l'horaire ne vous convient pas, dites-moi quand vous êtes disponible.`;
+      field.value = kind === "interest" ? t.interestReply(otherFirstName) : t.bookingReply(otherFirstName);
     }
     field.focus();
   };
@@ -87,20 +102,20 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="pattern-bogolan flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-sand-50 p-4">
-        {messages.length === 0 && <p className="m-auto text-sm text-earth-500">Envoyez votre premier message à {otherFirstName}.</p>}
+        {messages.length === 0 && <p className="m-auto text-sm text-earth-500">{t.first(otherFirstName)}</p>}
         {messages.map((m) => {
           const mine = m.sender_id === me;
           if (m.kind) {
             return (
               <div key={m.id} className="mx-auto w-full max-w-md rounded-2xl border border-ochre-300 bg-ochre-100 p-4 text-sm text-ochre-800 shadow-sm">
                 <p className="flex items-center gap-2 font-semibold">
-                  <BellRing size={16} /> {m.kind === "interest" ? "Élève intéressé·e par votre profil" : "Réservation non terminée"}
+                  <BellRing size={16} /> {m.kind === "interest" ? t.interested : t.unfinished}
                 </p>
                 <p className="mt-1 text-earth-800">{m.body}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] text-earth-500"><LocalDateTime iso={m.created_at} /></span>
                   <button type="button" onClick={() => suggestReply(m.kind!)} className="btn-dark px-3.5 py-1.5 text-xs">
-                    <MessageCircleReply size={14} /> Écrire à {otherFirstName}
+                    <MessageCircleReply size={14} /> {t.writeTo(otherFirstName)}
                   </button>
                 </div>
               </div>
@@ -128,14 +143,14 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
         className="flex items-end gap-2 border-t border-sand-200 bg-white p-3"
       >
         <div className="flex-1">
-          <label htmlFor="body" className="sr-only">Votre message</label>
+          <label htmlFor="body" className="sr-only">{t.yourMessage}</label>
           <textarea
             ref={textarea}
             id="body"
             name="body"
             rows={2}
             required
-            placeholder="Écrivez votre message…"
+            placeholder={t.placeholder}
             className="input resize-none"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -146,7 +161,7 @@ export function LiveThread({ otherId, otherFirstName, me, initial }: { otherId: 
           />
           {error && <p role="alert" className="mt-1 text-sm text-clay-700">{error}</p>}
         </div>
-        <button type="submit" disabled={pending} className="btn-primary h-11" aria-label="Envoyer">
+        <button type="submit" disabled={pending} className="btn-primary h-11" aria-label={t.send}>
           <Send size={18} />
         </button>
       </form>

@@ -1,20 +1,36 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { defineMessages } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 import { requireUser } from "../auth";
 import { FORUM_CATEGORIES } from "../constants";
 import { getDb, ObjectId, toObjectId } from "../db";
 import { refreshAll, text, type FormState } from "./shared";
 
+const M = defineMessages({
+  en: {
+    empty: "The message is empty.", recipient: "Invalid recipient.", unavailable: "This member is no longer available.",
+    title: "The title must be at least 8 characters long.", body: "Describe your question in at least 20 characters.", category: "Choose a category.",
+    reply: "Your reply is empty.", gone: "This topic no longer exists.",
+  },
+  fr: {
+    empty: "Le message est vide.", recipient: "Destinataire invalide.", unavailable: "Ce membre n'est plus disponible.",
+    title: "Le titre doit faire au moins 8 caractères.", body: "Détaillez votre question en au moins 20 caractères.", category: "Choisissez une catégorie.",
+    reply: "Votre réponse est vide.", gone: "Ce sujet n'existe plus.",
+  },
+});
+
 export async function sendMessage(recipientId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser(`/messages/${recipientId}`);
   const body = text(formData, "body", 4000);
   const to = toObjectId(recipientId);
-  if (!body) return { error: "Le message est vide." };
-  if (!to || to.equals(user._id)) return { error: "Destinataire invalide." };
+  const t = M[await getLocale()];
+  if (!body) return { error: t.empty };
+  if (!to || to.equals(user._id)) return { error: t.recipient };
 
   const db = await getDb();
-  if (!(await db.users.countDocuments({ _id: to, status: "active" }))) return { error: "Ce membre n'est plus disponible." };
+  if (!(await db.users.countDocuments({ _id: to, status: "active" }))) return { error: t.unavailable };
   await db.messages.insertOne({ _id: new ObjectId(), senderId: user._id, recipientId: to, body, readAt: null, createdAt: new Date() });
   // A new message brings an archived conversation back to the main list, on both sides.
   await Promise.all([
@@ -25,7 +41,7 @@ export async function sendMessage(recipientId: string, _prev: FormState, formDat
   return { success: "sent" };
 }
 
-// "Archiver" / "Désarchiver" a conversation (only for the viewer).
+// "Archive" / "Unarchive" a conversation (only for the viewer).
 export async function toggleArchive(otherId: string) {
   const user = await requireUser("/messages");
   const other = toObjectId(otherId);
@@ -43,9 +59,10 @@ export async function createTopic(_prev: FormState, formData: FormData): Promise
   const category = text(formData, "category", 40);
   const languageSlug = text(formData, "language", 40);
 
-  if (title.length < 8) return { error: "Le titre doit faire au moins 8 caractères." };
-  if (body.length < 20) return { error: "Détaillez votre question en au moins 20 caractères." };
-  if (!FORUM_CATEGORIES.some((c) => c.value === category)) return { error: "Choisissez une catégorie." };
+  const t = M[await getLocale()];
+  if (title.length < 8) return { error: t.title };
+  if (body.length < 20) return { error: t.body };
+  if (!FORUM_CATEGORIES.some((c) => c.value === category)) return { error: t.category };
 
   const db = await getDb();
   const language = languageSlug ? await db.languages.findOne({ slug: languageSlug }) : null;
@@ -59,11 +76,12 @@ export async function createTopic(_prev: FormState, formData: FormData): Promise
 export async function replyToTopic(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser(`/forum/${topicId}`);
   const body = text(formData, "body", 8000);
-  if (body.length < 2) return { error: "Votre réponse est vide." };
+  const t = M[await getLocale()];
+  if (body.length < 2) return { error: t.reply };
 
   const _id = toObjectId(topicId);
   const db = await getDb();
-  if (!_id || !(await db.topics.countDocuments({ _id }))) return { error: "Ce sujet n'existe plus." };
+  if (!_id || !(await db.topics.countDocuments({ _id }))) return { error: t.gone };
   await db.replies.insertOne({ _id: new ObjectId(), topicId: _id, authorId: user._id, body, createdAt: new Date() });
   refreshAll();
   return { success: "sent" };

@@ -1,12 +1,12 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { TutorCalendar } from "@/components/calendar/TutorCalendar";
 import { EspaceHeader } from "@/components/ui";
+import { getLocale, titled } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { getTutorCalendar } from "@/lib/calendar";
 import { first } from "@/lib/constants";
 
-export const metadata: Metadata = { title: "Calendrier" };
+export const generateMetadata = () => titled({ en: "Calendar", fr: "Calendrier" });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,12 +25,14 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calendr
   const sp = await searchParams;
   const week = /^(\d{4})-(\d{2})-(\d{2})$/.exec(first(sp.semaine));
   const [from, to] = periodToLoad(week);
-  const data = await getTutorCalendar(user._id, from, to);
+  const [data, locale] = await Promise.all([getTutorCalendar(user._id, from, to), getLocale()]);
 
   return (
     <>
-      <EspaceHeader title="Calendrier">
-        Vos cours de la semaine, vos disponibilités, vos absences et vos créneaux supplémentaires. Cliquez sur une heure pour planifier un cours.
+      <EspaceHeader title={locale === "en" ? "Calendar" : "Calendrier"}>
+        {locale === "en"
+          ? "Your lessons for the week, your availability, your time off and your extra slots. Click an hour to schedule a lesson."
+          : "Vos cours de la semaine, vos disponibilités, vos absences et vos créneaux supplémentaires. Cliquez sur une heure pour planifier un cours."}
       </EspaceHeader>
       <TutorCalendar week={week ? week[0] : null} data={data} preselectStudent={first(sp.eleve)} />
     </>

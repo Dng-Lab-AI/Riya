@@ -1,13 +1,41 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, BellRing, MessageCircle, NotebookText, Video } from "lucide-react";
 import { LessonWhen, TutorGreeting } from "@/components/TutorHomeClient";
 import { Avatar, EmptyState } from "@/components/ui";
+import { defineMessages } from "@/i18n";
+import { getLocale, titled } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { getTutor, getTutorLessons, type Lesson } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Accueil" };
+const M = defineMessages({
+  en: {
+    feedbackTitle: "Students waiting for your feedback",
+    feedbackText: (name: string, others: number) =>
+      `${name}${others > 0 ? ` and ${others} other student${others > 1 ? "s" : ""} could` : " could"} use a little follow-up: key points, vocabulary and homework from the last session.`,
+    giveFeedback: "Give feedback", live: "In progress", notes: "Lesson notes and summary", write: (name: string) => `Write to ${name}`, enter: "Enter the classroom",
+    pendingProfile: "Your profile is being reviewed.", incompleteProfile: "Complete your profile to appear in searches.",
+    profileText: "Students will be able to book you as soon as our team has approved your profile.", complete: "Complete my profile",
+    requests: (n: number) => `${n} lesson request${n > 1 ? "s" : ""} waiting for your answer`, requestsText: "Answer quickly to reassure your students.",
+    upcoming: "Coming up", calendar: "See the calendar", none: "No confirmed lessons coming up",
+    noneText: "Your next lessons will appear here as soon as you've accepted them.",
+  },
+  fr: {
+    feedbackTitle: "Élèves en attente de votre retour",
+    feedbackText: (name: string, others: number) =>
+      `${name}${others > 0 ? ` et ${others} autre${others > 1 ? "s" : ""} élève${others > 1 ? "s" : ""} pourraient` : " pourrait"} profiter d'un petit suivi : points clés, vocabulaire et devoirs de la dernière séance.`,
+    giveFeedback: "Donner un retour", live: "En cours", notes: "Notes et résumé du cours", write: (name: string) => `Écrire à ${name}`, enter: "Entrer en classe",
+    pendingProfile: "Votre profil est en cours de validation.", incompleteProfile: "Complétez votre profil pour apparaître dans les recherches.",
+    profileText: "Les élèves pourront vous réserver dès que notre équipe aura validé votre profil.", complete: "Compléter mon profil",
+    requests: (n: number) => `${n} demande${n > 1 ? "s" : ""} de cours en attente de votre réponse`, requestsText: "Répondez rapidement pour rassurer vos élèves.",
+    upcoming: "À venir", calendar: "Voir le calendrier", none: "Aucun cours confirmé à venir",
+    noneText: "Vos prochains cours apparaîtront ici dès que vous les aurez acceptés.",
+  },
+});
+
+type Texts = (typeof M)["en"];
+
+export const generateMetadata = () => titled({ en: "Home", fr: "Accueil" });
 
 const startOf = (l: Lesson) => new Date(l.starts_at).getTime();
 const hasStarted = (l: Lesson) => startOf(l) <= Date.now();
@@ -20,7 +48,7 @@ const FEEDBACK_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const awaitsFeedback = (l: Lesson) =>
   !l.has_notes && (l.status === "completed" || (l.status === "confirmed" && hasStarted(l) && !notOverYet(l))) && Date.now() - startOf(l) < FEEDBACK_WINDOW_MS;
 
-function FeedbackPrompt({ lessons }: { lessons: Lesson[] }) {
+function FeedbackPrompt({ lessons, t }: { lessons: Lesson[]; t: Texts }) {
   // One entry per student (their latest lesson), most recent first.
   const latest = new Map<string, Lesson>();
   for (const l of lessons) {
@@ -35,14 +63,10 @@ function FeedbackPrompt({ lessons }: { lessons: Lesson[] }) {
     <section className="relative overflow-hidden rounded-[1.75rem] bg-sand-100 p-6 sm:p-8">
       <div className="pattern-bogolan absolute inset-0 opacity-50" />
       <div className="relative max-w-2xl sm:pr-40">
-        <h2 className="font-display text-2xl font-semibold sm:text-3xl">Élèves en attente de votre retour</h2>
-        <p className="mt-2 text-earth-700">
-          {first.other_name.split(" ")[0]}
-          {others > 0 ? ` et ${others} autre${others > 1 ? "s" : ""} élève${others > 1 ? "s" : ""} pourraient` : " pourrait"} profiter d&apos;un petit suivi :
-          points clés, vocabulaire et devoirs de la dernière séance.
-        </p>
+        <h2 className="font-display text-2xl font-semibold sm:text-3xl">{t.feedbackTitle}</h2>
+        <p className="mt-2 text-earth-700">{t.feedbackText(first.other_name.split(" ")[0], others)}</p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Link href={`/cours/${first.id}`} className="btn-primary">Donner un retour</Link>
+          <Link href={`/cours/${first.id}`} className="btn-primary">{t.giveFeedback}</Link>
           {students.slice(1, 4).map((l) => (
             <Link key={l.id} href={`/cours/${l.id}`} className="chip bg-white hover:bg-clay-50">{l.other_name}</Link>
           ))}
@@ -61,7 +85,7 @@ function FeedbackPrompt({ lessons }: { lessons: Lesson[] }) {
   );
 }
 
-function UpNextRow({ lesson }: { lesson: Lesson }) {
+function UpNextRow({ lesson, t }: { lesson: Lesson; t: Texts }) {
   const live = hasStarted(lesson);
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5">
@@ -69,14 +93,14 @@ function UpNextRow({ lesson }: { lesson: Lesson }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2 font-semibold">
           {lesson.other_name}
-          {live && <span className="chip bg-clay-600 text-white">En cours</span>}
+          {live && <span className="chip bg-clay-600 text-white">{t.live}</span>}
         </p>
         <p className="text-sm text-earth-600"><LessonWhen iso={lesson.starts_at} minutes={lesson.duration_minutes} /> · {lesson.language_name}</p>
       </div>
       <div className="flex items-center gap-1">
-        <Link href={`/cours/${lesson.id}`} className="btn-ghost" title="Notes et résumé du cours" aria-label="Notes et résumé du cours"><NotebookText size={20} /></Link>
-        <Link href={`/messages/${lesson.other_id}`} className="btn-ghost" title={`Écrire à ${lesson.other_name}`} aria-label={`Écrire à ${lesson.other_name}`}><MessageCircle size={20} /></Link>
-        <Link href={`/classe/${lesson.id}`} className="btn-dark ml-1"><Video size={16} /> Entrer en classe</Link>
+        <Link href={`/cours/${lesson.id}`} className="btn-ghost" title={t.notes} aria-label={t.notes}><NotebookText size={20} /></Link>
+        <Link href={`/messages/${lesson.other_id}`} className="btn-ghost" title={t.write(lesson.other_name)} aria-label={t.write(lesson.other_name)}><MessageCircle size={20} /></Link>
+        <Link href={`/classe/${lesson.id}`} className="btn-dark ml-1"><Video size={16} /> {t.enter}</Link>
       </div>
     </li>
   );
@@ -87,7 +111,8 @@ export default async function TutorHomePage() {
   const user = await requireUser("/accueil");
   if (user.role !== "tutor") redirect("/tableau-de-bord");
 
-  const [lessons, profile] = await Promise.all([getTutorLessons(user._id), getTutor(user.id)]);
+  const [lessons, profile, locale] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getLocale()]);
+  const t = M[locale];
   // Bookings waiting for the tutor (not the lessons they proposed, which wait for the student).
   const requests = lessons.filter((l) => l.status === "pending" && !l.proposed_by_tutor && !hasStarted(l));
   const upNext = lessons.filter((l) => l.status === "confirmed" && notOverYet(l)).sort(byDateAsc);
@@ -100,9 +125,9 @@ export default async function TutorHomePage() {
       <div className="space-y-8">
         {profile && (!profile.approved || !profile.headline) && (
           <div className="rounded-[1.5rem] bg-ochre-100 p-5 text-ochre-800">
-            <p className="font-semibold">{profile.headline ? "Votre profil est en cours de validation." : "Complétez votre profil pour apparaître dans les recherches."}</p>
-            <p className="mt-1 text-sm">Les élèves pourront vous réserver dès que notre équipe aura validé votre profil.</p>
-            <Link href="/profil/tuteur" className="btn-dark mt-3">Compléter mon profil</Link>
+            <p className="font-semibold">{profile.headline ? t.pendingProfile : t.incompleteProfile}</p>
+            <p className="mt-1 text-sm">{t.profileText}</p>
+            <Link href="/profil/tuteur" className="btn-dark mt-3">{t.complete}</Link>
           </div>
         )}
 
@@ -110,28 +135,26 @@ export default async function TutorHomePage() {
           <Link href="/tableau-de-bord" className="flex items-center gap-4 rounded-[1.5rem] bg-forest-800 p-5 text-sand-50 transition hover:bg-forest-900">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-ochre-300"><BellRing size={22} /></span>
             <span className="flex-1">
-              <span className="block font-semibold">
-                {requests.length} demande{requests.length > 1 ? "s" : ""} de cours en attente de votre réponse
-              </span>
-              <span className="text-sm text-sand-200">Répondez rapidement pour rassurer vos élèves.</span>
+              <span className="block font-semibold">{t.requests(requests.length)}</span>
+              <span className="text-sm text-sand-200">{t.requestsText}</span>
             </span>
             <ArrowRight size={20} />
           </Link>
         )}
 
-        {waiting.length > 0 && <FeedbackPrompt lessons={waiting} />}
+        {waiting.length > 0 && <FeedbackPrompt lessons={waiting} t={t} />}
 
         <section>
           <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2 className="font-display text-2xl font-semibold sm:text-3xl">À venir</h2>
-            <Link href="/calendrier" className="text-sm font-semibold underline underline-offset-4">Voir le calendrier</Link>
+            <h2 className="font-display text-2xl font-semibold sm:text-3xl">{t.upcoming}</h2>
+            <Link href="/calendrier" className="text-sm font-semibold underline underline-offset-4">{t.calendar}</Link>
           </div>
           {upNext.length ? (
             <ul className="divide-y divide-sand-200 rounded-[1.75rem] border border-sand-200 bg-white">
-              {upNext.slice(0, 5).map((l) => <UpNextRow key={l.id} lesson={l} />)}
+              {upNext.slice(0, 5).map((l) => <UpNextRow key={l.id} lesson={l} t={t} />)}
             </ul>
           ) : (
-            <EmptyState title="Aucun cours confirmé à venir">Vos prochains cours apparaîtront ici dès que vous les aurez acceptés.</EmptyState>
+            <EmptyState title={t.none}>{t.noneText}</EmptyState>
           )}
         </section>
       </div>

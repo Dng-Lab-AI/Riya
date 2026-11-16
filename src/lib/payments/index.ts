@@ -65,7 +65,7 @@ export function isSettled(lesson: Pick<LessonDoc, "payment">) {
 // Opens a new payment attempt for the lesson and returns the checkout page to send the student to.
 export async function startCheckout(lesson: LessonDoc, student: Pick<UserDoc, "email" | "name">, quote: Quote, description: string): Promise<string> {
   const provider = activeProvider();
-  if (!provider) throw new Error("Aucun moyen de paiement n'est configuré.");
+  if (!provider) throw new Error("No payment provider is configured.");
 
   const reference = `riya-${lesson._id.toHexString()}-${randomBytes(4).toString("hex")}`;
   const payment: LessonPayment = {
@@ -98,7 +98,7 @@ export async function confirmPayment(reference: string): Promise<LessonDoc | nul
   if (result?.status === "paid") {
     // Never trust a payment that is smaller or in another currency than what we asked for.
     if (result.currency !== payment.currency || result.amount < payment.amount) {
-      console.error(`Paiement ${reference} : montant reçu ${result.amount} ${result.currency}, attendu ${payment.amount} ${payment.currency}`);
+      console.error(`Payment ${reference}: received ${result.amount} ${result.currency}, expected ${payment.amount} ${payment.currency}`);
       return lesson;
     }
     await db.lessons.updateOne(
@@ -130,7 +130,7 @@ export async function refundLesson(lesson: LessonDoc) {
     if (payment.provider === "flutterwave") await providers.flutterwave.refund(payment.providerTxId ?? "");
     await db.lessons.updateOne({ _id: lesson._id }, { $set: { "payment.status": "refunded", "payment.refundedAt": new Date() } });
   } catch (err) {
-    console.error(`Remboursement du cours ${lesson._id.toHexString()}`, err);
+    console.error(`Refund of lesson ${lesson._id.toHexString()}`, err);
     await db.lessons.updateOne({ _id: lesson._id }, { $set: { "payment.status": "refund_failed" } });
   }
 }

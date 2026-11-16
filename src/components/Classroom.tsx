@@ -8,7 +8,9 @@ import {
   Send, Smile, Subtitles, Timer, Trash2, Upload, Video, VideoOff, Wifi, WifiOff, X,
 } from "lucide-react";
 import { updateLesson } from "@/lib/actions/lessons";
-import { LESSON_FILE_TYPES, MAX_EXTRA_MINUTES, REACTIONS, withDe } from "@/lib/constants";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
+import { LESSON_FILE_TYPES, MAX_EXTRA_MINUTES, REACTIONS, lessonOf } from "@/lib/constants";
 import {
   AssistantPanel, Confetti, ConsentPrompt, QuizCard, QuizComposer, ReactionLayer, Whiteboard, makeConfetti, useSpeechSupported, useTranscription,
   type AssistantState, type ConfettiPiece, type FloatingReaction, type QuizState, type Stroke,
@@ -70,20 +72,108 @@ const NOTES_SAVE_DELAY_MS = 1200;
 const CAPTION_MS = 7000;
 // The end-of-lesson warning (and the tutor's "add time" buttons) shows this long before the end.
 const ENDING_SOON_MS = 5 * 60 * 1000;
+
+const s = (n: number) => (n > 1 ? "s" : "");
+
+const M = defineMessages<{
+  media: Record<string, string>; uploadFailed: string; connectionLost: string; quizFailed: string; extendFailed: string;
+  startsIn: (d: string) => string; left: (d: string) => string; over: (d: string) => string; extended: (n: number) => string;
+  endedTime: (n: number) => string; youLeft: string; needTime: (n: number) => string; howWasIt: string; rejoin: string; seeSummary: string;
+  completeNotes: string; markCompleted: string; backToLessons: string; muteMic: string; unmuteMic: string; camOff: string; camOn: string;
+  classroom: string; ready: (name: string) => string; check: string; features: string[]; join: string; preparing: string; you: string;
+  sharing: string; connecting: string; notJoined: (name: string) => string; lessonWith: (lesson: string, name: string) => string;
+  extendTitle: (n: number) => string; maxTitle: (n: number) => string; moreTime: string; addTimeText: (n: number) => string; aiActive: string;
+  aiListening: string; ai: string; connected: string; connectingShort: string; waitingFor: (name: string) => string; exitFullscreenTitle: string;
+  fullscreenTitle: string; exitFullscreen: string; fullscreen: string; endsIn: (d: string) => string; add: string; maxReached: (n: number) => string;
+  raisesHand: (name: string) => string; lower: string; sharedBoard: string; stopPresenting: string; close: string;
+  tabs: Record<"chat" | "documents" | "notes" | "quiz" | "assistant", string>; closePanel: string; chatHint: string; messagePlaceholder: string;
+  send: string; uploading: string; shareDocument: string; tutorDocsHint: string; studentDocsHint: string; present: string; showLarge: string;
+  presentName: (name: string) => string; showName: (name: string) => string; remove: string; removeName: (name: string) => string;
+  notesHint: string; saved: string; saving: string; keyPoints: string; keyPlaceholder: string; vocabulary: string; vocabHint: string;
+  vocabPlaceholder: string; homework: string; stopShare: string; share: string; closeBoard: string; board: string; react: string;
+  lowerHand: string; raiseHand: string; notes: string; assistant: string; leave: string;
+}>({
+  en: {
+    media: {
+      https: "Your browser doesn't allow camera access (a secure https connection is required).",
+      audioOnly: "Camera unavailable: you'll join with audio only.",
+      denied: "Camera and microphone access denied. Allow them in your browser to be seen and heard.",
+    },
+    uploadFailed: "Upload failed.", connectionLost: "Connection lost.", quizFailed: "The quiz couldn't be launched.", extendFailed: "Time couldn't be added.",
+    startsIn: (d) => `Starts in ${d}`, left: (d) => `${d} left`, over: (d) => `Overtime ${d}`, extended: (n) => ` · extended by ${n} min`,
+    endedTime: (n) => `The lesson is over: the planned ${n} minutes have passed.`, youLeft: "You left the classroom.",
+    needTime: (n) => `Need to finish an exercise? Add time (${n} more min possible):`, howWasIt: "How was the session?", rejoin: "Join again",
+    seeSummary: "See the lesson summary and notes", completeNotes: "Complete the notes and summary", markCompleted: "Mark the lesson as completed",
+    backToLessons: "Back to my lessons", muteMic: "Mute the microphone", unmuteMic: "Turn on the microphone", camOff: "Turn off the camera", camOn: "Turn on the camera",
+    classroom: "Classroom", ready: (name) => `Ready for your lesson with ${name}?`, check: "Check your camera and microphone, then join the class.",
+    features: ["✏️ Shared whiteboard, documents and quizzes", "👏 Reactions and raised hand", "🤖 AI assistant: captions and lesson summary (with your agreement)"],
+    join: "Join the class", preparing: "Preparing the camera…", you: "You", sharing: " · screen shared", connecting: "Connecting…",
+    notJoined: (name) => `${name} hasn't joined the class yet.`, lessonWith: (lesson, name) => `${lesson} with ${name}`,
+    extendTitle: (n) => `Extend the lesson (${n} more min possible)`, maxTitle: (n) => `The lesson has already been extended by ${n} min, the maximum`,
+    moreTime: "+ time", addTimeText: (n) => `Add time at the end of the lesson (${n} more min possible).`, aiActive: "AI assistant active",
+    aiListening: "AI listening", ai: "AI assistant", connected: "Connected", connectingShort: "Connecting…", waitingFor: (name) => `Waiting for ${name}`,
+    exitFullscreenTitle: "Exit full screen (F or Esc)", fullscreenTitle: "Full screen (F)", exitFullscreen: "Exit full screen", fullscreen: "Full screen",
+    endsIn: (d) => `The lesson ends in ${d}.`, add: "Add:", maxReached: (n) => `Maximum extension reached (${n} min).`,
+    raisesHand: (name) => `${name} is raising their hand`, lower: "Lower", sharedBoard: "Shared whiteboard", stopPresenting: "Stop presenting", close: "Close",
+    tabs: { chat: "Chat", documents: "Documents", notes: "Notes", quiz: "Quiz", assistant: "AI assistant" }, closePanel: "Close the panel",
+    chatHint: "Write new words, corrections, links here…", messagePlaceholder: "Message…", send: "Send", uploading: "Uploading…",
+    shareDocument: "Share a document", tutorDocsHint: "PDF, images, audio, Word, PowerPoint… (15 MB max). Your student sees them straight away.",
+    studentDocsHint: "Documents shared by your tutor will appear here.", present: "Present to the student", showLarge: "Show full size",
+    presentName: (name) => `Present ${name}`, showName: (name) => `Show ${name}`, remove: "Remove", removeName: (name) => `Remove ${name}`,
+    notesHint: "Your student sees these notes live, and they're used to prepare their revision summary.", saved: "✓ Saved", saving: "Saving…",
+    keyPoints: "Key points", keyPlaceholder: "What we covered, common mistakes…", vocabulary: "Vocabulary", vocabHint: "(one line per word: word = translation)",
+    vocabPlaceholder: "habari = how are you?\nasante = thank you", homework: "Homework", stopShare: "Stop sharing the screen", share: "Share the screen",
+    closeBoard: "Close the whiteboard", board: "Whiteboard", react: "React", lowerHand: "Lower your hand", raiseHand: "Raise your hand",
+    notes: "Lesson notes", assistant: "AI assistant and captions", leave: "Leave the class",
+  },
+  fr: {
+    media: {
+      https: "Votre navigateur ne permet pas l'accès à la caméra (une connexion https est nécessaire).",
+      audioOnly: "Caméra indisponible : vous rejoindrez en audio uniquement.",
+      denied: "Accès à la caméra et au micro refusé. Autorisez-les dans votre navigateur pour être vu et entendu.",
+    },
+    uploadFailed: "Échec de l'envoi.", connectionLost: "Connexion perdue.", quizFailed: "Impossible de lancer le quiz.", extendFailed: "Impossible d'ajouter du temps.",
+    startsIn: (d) => `Début dans ${d}`, left: (d) => `${d} restantes`, over: (d) => `Dépassement ${d}`, extended: (n) => ` · prolongé de ${n} min`,
+    endedTime: (n) => `Le cours est terminé : les ${n} minutes prévues sont écoulées.`, youLeft: "Vous avez quitté la salle de classe.",
+    needTime: (n) => `Besoin de finir un exercice ? Ajoutez du temps (encore ${n} min possible${s(n)}) :`, howWasIt: "Comment s'est passée la séance ?", rejoin: "Rejoindre à nouveau",
+    seeSummary: "Voir le résumé et les notes du cours", completeNotes: "Compléter les notes et le résumé", markCompleted: "Marquer le cours comme terminé",
+    backToLessons: "Retour à mes cours", muteMic: "Couper le micro", unmuteMic: "Activer le micro", camOff: "Couper la caméra", camOn: "Activer la caméra",
+    classroom: "Salle de classe", ready: (name) => `Prêt·e pour votre cours avec ${name} ?`, check: "Vérifiez votre caméra et votre micro, puis rejoignez la classe.",
+    features: ["✏️ Tableau blanc partagé, documents et quiz", "👏 Réactions et main levée", "🤖 Assistant IA : sous-titres et résumé du cours (avec votre accord)"],
+    join: "Rejoindre la classe", preparing: "Préparation de la caméra…", you: "Vous", sharing: " · écran partagé", connecting: "Connexion en cours…",
+    notJoined: (name) => `${name} n'a pas encore rejoint la classe.`, lessonWith: (lesson, name) => `${lesson} avec ${name}`,
+    extendTitle: (n) => `Prolonger le cours (encore ${n} min possible${s(n)})`, maxTitle: (n) => `Le cours a déjà été prolongé de ${n} min, le maximum`,
+    moreTime: "+ temps", addTimeText: (n) => `Ajouter du temps à la fin du cours (encore ${n} min possible${s(n)}).`, aiActive: "Assistant IA actif",
+    aiListening: "IA à l'écoute", ai: "Assistant IA", connected: "Connecté", connectingShort: "Connexion…", waitingFor: (name) => `En attente de ${name}`,
+    exitFullscreenTitle: "Quitter le plein écran (F ou Échap)", fullscreenTitle: "Plein écran (F)", exitFullscreen: "Quitter le plein écran", fullscreen: "Plein écran",
+    endsIn: (d) => `Le cours se termine dans ${d}.`, add: "Ajouter :", maxReached: (n) => `Prolongation maximale atteinte (${n} min).`,
+    raisesHand: (name) => `${name} lève la main`, lower: "Baisser", sharedBoard: "Tableau blanc partagé", stopPresenting: "Arrêter la présentation", close: "Fermer",
+    tabs: { chat: "Discussion", documents: "Documents", notes: "Notes", quiz: "Quiz", assistant: "Assistant IA" }, closePanel: "Fermer le panneau",
+    chatHint: "Écrivez ici les mots nouveaux, les corrections, les liens…", messagePlaceholder: "Message…", send: "Envoyer", uploading: "Envoi en cours…",
+    shareDocument: "Partager un document", tutorDocsHint: "PDF, images, audio, Word, PowerPoint… (15 Mo max). Votre élève les voit immédiatement.",
+    studentDocsHint: "Les documents partagés par votre tuteur apparaîtront ici.", present: "Présenter à l'élève", showLarge: "Afficher en grand",
+    presentName: (name) => `Présenter ${name}`, showName: (name) => `Afficher ${name}`, remove: "Retirer", removeName: (name) => `Retirer ${name}`,
+    notesHint: "Votre élève voit ces notes en direct, et elles servent à préparer son résumé de révision.", saved: "✓ Enregistré", saving: "Enregistrement…",
+    keyPoints: "Points clés", keyPlaceholder: "Ce qu'on a vu, les erreurs fréquentes…", vocabulary: "Vocabulaire", vocabHint: "(une ligne par mot : mot = traduction)",
+    vocabPlaceholder: "habari = comment ça va ?\nasante = merci", homework: "Devoirs", stopShare: "Arrêter le partage d'écran", share: "Partager l'écran",
+    closeBoard: "Fermer le tableau", board: "Tableau blanc", react: "Réagir", lowerHand: "Baisser la main", raiseHand: "Lever la main",
+    notes: "Notes du cours", assistant: "Assistant IA et sous-titres", leave: "Quitter la classe",
+  },
+});
 const EMPTY_NOTES: Notes = { keyPoints: "", vocabulary: "", homework: "" };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function getLocalMedia(): Promise<{ stream: MediaStream | null; error: string | null }> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    return { stream: null, error: "Votre navigateur ne permet pas l'accès à la caméra (une connexion https est nécessaire)." };
+    return { stream: null, error: "https" };
   }
   try {
     return { stream: await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: { echoCancellation: true, noiseSuppression: true } }), error: null };
   } catch {
     try {
-      return { stream: await navigator.mediaDevices.getUserMedia({ audio: true }), error: "Caméra indisponible : vous rejoindrez en audio uniquement." };
+      return { stream: await navigator.mediaDevices.getUserMedia({ audio: true }), error: "audioOnly" };
     } catch {
-      return { stream: null, error: "Accès à la caméra et au micro refusé. Autorisez-les dans votre navigateur pour être vu et entendu." };
+      return { stream: null, error: "denied" };
     }
   }
 }
@@ -181,6 +271,8 @@ export function Classroom(props: Props) {
   const { lessonId, role, me, other, startsAt, durationMinutes, initialExtraMinutes, languageName, iceServers, initialNotes, initialFeedback, aiAvailable, speechLangs } = props;
   const api = `/api/classe/${lessonId}`;
   const otherFirst = other.name.split(" ")[0];
+  const locale = useLocale();
+  const t = M[locale];
 
   const [phase, setPhase] = useState<"lobby" | "live" | "ended">("lobby");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -483,8 +575,8 @@ export function Classroom(props: Props) {
       form.append("file", file);
       const res = await fetch(`${api}/documents`, { method: "POST", body: form }).catch(() => null);
       if (!res?.ok) {
-        const message = res ? ((await res.json().catch(() => null))?.error ?? "Échec de l'envoi.") : "Connexion perdue.";
-        setUpload({ busy: false, error: `${file.name} : ${message}` });
+        const message = res ? ((await res.json().catch(() => null))?.error ?? t.uploadFailed) : t.connectionLost;
+        setUpload({ busy: false, error: `${file.name}: ${message}` });
         return;
       }
     }
@@ -544,7 +636,7 @@ export function Classroom(props: Props) {
 
   const launchQuiz = async (draftQuiz: { question: string; options: string[]; correctIndex: number; explanation: string }) => {
     const res = await postJson({ kind: "quiz", ...draftQuiz }).catch(() => null);
-    if (!res?.ok) return (await res?.json().catch(() => null))?.error ?? "Impossible de lancer le quiz.";
+    if (!res?.ok) return (await res?.json().catch(() => null))?.error ?? t.quizFailed;
     setHiddenQuizId(null);
     return null;
   };
@@ -605,7 +697,7 @@ export function Classroom(props: Props) {
     setExtendError(null);
     const res = await postJson({ kind: "extend", minutes }).catch(() => null);
     const data = await res?.json().catch(() => null);
-    if (!res?.ok) return setExtendError(data?.error ?? "Impossible d'ajouter du temps.");
+    if (!res?.ok) return setExtendError(data?.error ?? t.extendFailed);
     setExtraMinutes(data.extraMinutes);
     return true;
   };
@@ -614,8 +706,8 @@ export function Classroom(props: Props) {
   const end = start + (durationMinutes + extraMinutes) * 60 * 1000;
   const extraLeft = MAX_EXTRA_MINUTES - extraMinutes;
   const extendChoices = [1, 2, 5].filter((m) => m <= extraLeft);
-  const clock = now === null ? "" : now < start ? `Début dans ${formatDuration(start - now)}` : now < end ? `${formatDuration(end - now)} restantes` : `Dépassement ${formatDuration(now - end)}`;
-  const clockNote = extraMinutes ? ` · prolongé de ${extraMinutes} min` : "";
+  const clock = now === null ? "" : now < start ? t.startsIn(formatDuration(start - now)) : now < end ? t.left(formatDuration(end - now)) : t.over(formatDuration(now - end));
+  const clockNote = extraMinutes ? t.extended(extraMinutes) : "";
   const remaining = now === null ? null : end - now;
   const endingSoon = phase === "live" && remaining !== null && remaining > 0 && remaining <= ENDING_SOON_MS;
 
@@ -649,12 +741,12 @@ export function Classroom(props: Props) {
           <p className="font-display text-4xl font-semibold">Asante sana !</p>
           <p className="mt-2 text-sand-200">
             {endedByTime
-              ? `Le cours est terminé : les ${durationMinutes + extraMinutes} minutes prévues sont écoulées.`
-              : "Vous avez quitté la salle de classe."}
+              ? t.endedTime(durationMinutes + extraMinutes)
+              : t.youLeft}
           </p>
           {endedByTime && role === "tutor" && extendChoices.length > 0 && (
             <div className="mt-4 rounded-2xl bg-white/10 p-4">
-              <p className="text-sm text-sand-200">Besoin de finir un exercice ? Ajoutez du temps (encore {extraLeft} min possible{extraLeft > 1 ? "s" : ""}) :</p>
+              <p className="text-sm text-sand-200">{t.needTime(extraLeft)}</p>
               <div className="mt-2 flex justify-center gap-2">
                 {extendChoices.map((m) => (
                   <button
@@ -676,21 +768,21 @@ export function Classroom(props: Props) {
           )}
           {role === "student" && (
             <div className="mt-8 rounded-2xl bg-white p-6 text-earth-900">
-              <h2 className="mb-4 font-display text-xl font-semibold">Comment s&apos;est passée la séance ?</h2>
+              <h2 className="mb-4 font-display text-xl font-semibold">{t.howWasIt}</h2>
               <FeedbackForm lessonId={lessonId} initial={initialFeedback} tutorName={otherFirst} />
             </div>
           )}
           <div className="mt-8 flex flex-col gap-3">
-            <button onClick={() => setPhase("live")} className="btn bg-ochre-400 text-forest-900 hover:bg-ochre-300">Rejoindre à nouveau</button>
+            <button onClick={() => setPhase("live")} className="btn bg-ochre-400 text-forest-900 hover:bg-ochre-300">{t.rejoin}</button>
             <Link href={`/cours/${lessonId}`} className="btn bg-white/10 text-white hover:bg-white/20">
-              {role === "student" ? "Voir le résumé et les notes du cours" : "Compléter les notes et le résumé"}
+              {role === "student" ? t.seeSummary : t.completeNotes}
             </Link>
             {role === "tutor" && now !== null && now >= start && (
               <form action={updateLesson.bind(null, lessonId, "complete")}>
-                <button className="btn w-full bg-white/10 text-white hover:bg-white/20">Marquer le cours comme terminé</button>
+                <button className="btn w-full bg-white/10 text-white hover:bg-white/20">{t.markCompleted}</button>
               </form>
             )}
-            <Link href="/tableau-de-bord" className="btn bg-white/10 text-white hover:bg-white/20">Retour à mes cours</Link>
+            <Link href="/tableau-de-bord" className="btn bg-white/10 text-white hover:bg-white/20">{t.backToLessons}</Link>
           </div>
         </motion.div>
       </div>
@@ -708,22 +800,20 @@ export function Classroom(props: Props) {
               <div className="flex h-full items-center justify-center"><Avatar name={me.name} src={me.avatar_url} size={96} /></div>
             )}
             <div className="absolute inset-x-0 bottom-4 flex justify-center gap-3">
-              <ControlButton on={micOn} label={micOn ? "Couper le micro" : "Activer le micro"} onClick={toggleMic}>{micOn ? <Mic size={20} /> : <MicOff size={20} />}</ControlButton>
-              <ControlButton on={camOn} label={camOn ? "Couper la caméra" : "Activer la caméra"} onClick={toggleCam}>{camOn ? <Video size={20} /> : <VideoOff size={20} />}</ControlButton>
+              <ControlButton on={micOn} label={micOn ? t.muteMic : t.unmuteMic} onClick={toggleMic}>{micOn ? <Mic size={20} /> : <MicOff size={20} />}</ControlButton>
+              <ControlButton on={camOn} label={camOn ? t.camOff : t.camOn} onClick={toggleCam}>{camOn ? <Video size={20} /> : <VideoOff size={20} />}</ControlButton>
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-ochre-300">Salle de classe · {languageName}</p>
-            <h1 className="mt-3 font-display text-3xl font-semibold">Prêt·e pour votre cours avec {otherFirst} ?</h1>
-            <p className="mt-2 text-sand-200">Vérifiez votre caméra et votre micro, puis rejoignez la classe.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-ochre-300">{t.classroom} · {languageName}</p>
+            <h1 className="mt-3 font-display text-3xl font-semibold">{t.ready(otherFirst)}</h1>
+            <p className="mt-2 text-sand-200">{t.check}</p>
             <ul className="mt-4 space-y-1 text-sm text-sand-300">
-              <li>✏️ Tableau blanc partagé, documents et quiz</li>
-              <li>👏 Réactions et main levée</li>
-              <li>🤖 Assistant IA : sous-titres et résumé du cours (avec votre accord)</li>
+              {t.features.map((f) => <li key={f}>{f}</li>)}
             </ul>
-            {mediaError && <p className="mt-4 rounded-xl bg-clay-600/20 p-3 text-sm text-clay-100">{mediaError}</p>}
+            {mediaError && <p className="mt-4 rounded-xl bg-clay-600/20 p-3 text-sm text-clay-100">{t.media[mediaError] ?? mediaError}</p>}
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setPhase("live")} disabled={!mediaReady} className="btn mt-6 bg-ochre-400 px-7 py-3 text-base text-forest-900 hover:bg-ochre-300">
-              {mediaReady ? "Rejoindre la classe" : "Préparation de la caméra…"}
+              {mediaReady ? t.join : t.preparing}
             </motion.button>
             <p className="mt-4 text-sm text-sand-300">{clock}</p>
           </div>
@@ -739,7 +829,7 @@ export function Classroom(props: Props) {
       ) : (
         <div className="flex h-full items-center justify-center"><Avatar name={me.name} src={me.avatar_url} size={48} /></div>
       )}
-      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 text-[10px]">Vous{sharing ? " · écran partagé" : ""}{hands.me ? " ✋" : ""}</span>
+      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 text-[10px]">{t.you}{sharing ? t.sharing : ""}{hands.me ? " ✋" : ""}</span>
     </div>
   );
 
@@ -748,7 +838,7 @@ export function Classroom(props: Props) {
   ) : (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-2 text-center">
       <Avatar name={other.name} src={other.avatar_url} size={onStage ? 40 : 112} />
-      {!onStage && <p className="text-sand-200">{peerOnline ? "Connexion en cours…" : `${otherFirst} n'a pas encore rejoint la classe.`}</p>}
+      {!onStage && <p className="text-sand-200">{peerOnline ? t.connecting : t.notJoined(otherFirst)}</p>}
     </div>
   );
 
@@ -758,7 +848,7 @@ export function Classroom(props: Props) {
     <div ref={fullscreenRef} className={`flex flex-col bg-earth-900 text-sand-50 ${isFullscreen ? "h-screen" : "h-[calc(100vh-4rem)]"}`}>
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold">Cours {withDe(languageName)} avec {other.name}</p>
+          <p className="truncate font-semibold">{t.lessonWith(lessonOf(languageName, locale), other.name)}</p>
           <p className="text-xs text-sand-300">{clock}{clockNote}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -766,13 +856,13 @@ export function Classroom(props: Props) {
             <details className="relative">
               <summary
                 className={`flex cursor-pointer list-none items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${extraLeft > 0 ? "bg-white/10 hover:bg-white/20" : "cursor-not-allowed bg-white/5 text-sand-300"}`}
-                title={extraLeft > 0 ? `Prolonger le cours (encore ${extraLeft} min possible${extraLeft > 1 ? "s" : ""})` : `Le cours a déjà été prolongé de ${MAX_EXTRA_MINUTES} min, le maximum`}
+                title={extraLeft > 0 ? t.extendTitle(extraLeft) : t.maxTitle(MAX_EXTRA_MINUTES)}
               >
-                <Timer size={14} /> {extraLeft > 0 ? "+ temps" : `+${MAX_EXTRA_MINUTES} min`}
+                <Timer size={14} /> {extraLeft > 0 ? t.moreTime : `+${MAX_EXTRA_MINUTES} min`}
               </summary>
               {extraLeft > 0 && (
                 <div className="absolute right-0 z-30 mt-2 w-56 rounded-2xl bg-white p-3 text-earth-900 shadow-xl">
-                  <p className="text-xs text-earth-600">Ajouter du temps à la fin du cours (encore {extraLeft} min possible{extraLeft > 1 ? "s" : ""}).</p>
+                  <p className="text-xs text-earth-600">{t.addTimeText(extraLeft)}</p>
                   <div className="mt-2 flex gap-2">
                     {extendChoices.map((m) => (
                       <button key={m} onClick={() => extend(m)} className="btn flex-1 bg-forest-800 px-2 py-1.5 text-sand-50 hover:bg-forest-900">+{m} min</button>
@@ -784,19 +874,19 @@ export function Classroom(props: Props) {
             </details>
           )}
           {assistant.enabled && (
-            <span className="chip bg-ochre-400/20 text-ochre-100" title="Assistant IA actif">
-              <Bot size={13} /> {transcribing ? "IA à l'écoute" : "Assistant IA"}
+            <span className="chip bg-ochre-400/20 text-ochre-100" title={t.aiActive}>
+              <Bot size={13} /> {transcribing ? t.aiListening : t.ai}
             </span>
           )}
           <span className={`chip ${connected ? "bg-forest-600 text-white" : "bg-white/10 text-sand-200"}`}>
             {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
-            {connected ? "Connecté" : peerOnline ? "Connexion…" : `En attente de ${otherFirst}`}
+            {connected ? t.connected : peerOnline ? t.connectingShort : t.waitingFor(otherFirst)}
           </span>
           {canFullscreen && (
             <button
               onClick={toggleFullscreen}
-              title={isFullscreen ? "Quitter le plein écran (F ou Échap)" : "Plein écran (F)"}
-              aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+              title={isFullscreen ? t.exitFullscreenTitle : t.fullscreenTitle}
+              aria-label={isFullscreen ? t.exitFullscreen : t.fullscreen}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
             >
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -807,17 +897,17 @@ export function Classroom(props: Props) {
 
       {endingSoon && (
         <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 bg-ochre-400 px-4 py-2 text-sm font-semibold text-forest-900">
-          <span className="flex items-center gap-1.5"><Timer size={16} /> Le cours se termine dans {formatDuration(remaining!)}.</span>
+          <span className="flex items-center gap-1.5"><Timer size={16} /> {t.endsIn(formatDuration(remaining!))}</span>
           {role === "tutor" &&
             (extendChoices.length ? (
               <span className="flex items-center gap-1.5">
-                Ajouter :
+                {t.add}
                 {extendChoices.map((m) => (
                   <button key={m} onClick={() => extend(m)} className="rounded-full bg-forest-900 px-3 py-1 text-xs text-sand-50 hover:bg-forest-800">+{m} min</button>
                 ))}
               </span>
             ) : (
-              <span className="font-normal">Prolongation maximale atteinte ({MAX_EXTRA_MINUTES} min).</span>
+              <span className="font-normal">{t.maxReached(MAX_EXTRA_MINUTES)}</span>
             ))}
           {extendError && <span className="font-normal text-clay-800">{extendError}</span>}
         </div>
@@ -838,8 +928,8 @@ export function Classroom(props: Props) {
             {hands.other && (
               <motion.div initial={{ opacity: 0, y: -16, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16 }} className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-ochre-400 px-4 py-2 font-semibold text-forest-900 shadow-lg">
                 <motion.span animate={{ rotate: [0, 18, -10, 18, 0] }} transition={{ repeat: Infinity, duration: 1.4 }}>✋</motion.span>
-                {otherFirst} lève la main
-                {role === "tutor" && <button onClick={() => postJson({ kind: "hand", raised: false, forOther: true })} className="rounded-full bg-forest-900/10 px-2 py-0.5 text-xs hover:bg-forest-900/20">Baisser</button>}
+                {t.raisesHand(otherFirst)}
+                {role === "tutor" && <button onClick={() => postJson({ kind: "hand", raised: false, forOther: true })} className="rounded-full bg-forest-900/10 px-2 py-0.5 text-xs hover:bg-forest-900/20">{t.lower}</button>}
               </motion.div>
             )}
           </AnimatePresence>
@@ -851,11 +941,11 @@ export function Classroom(props: Props) {
                 <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
                     {stage === "board" ? <PenLine size={16} className="shrink-0 text-ochre-300" /> : <Presentation size={16} className="shrink-0 text-ochre-300" />}
-                    <span className="truncate">{stage === "board" ? "Tableau blanc partagé" : stageDoc?.name}</span>
+                    <span className="truncate">{stage === "board" ? t.sharedBoard : stageDoc?.name}</span>
                   </span>
                   {canCloseStage && (
                     <button onClick={() => showOnStage(null)} className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs hover:bg-white/20">
-                      {role === "tutor" ? "Arrêter la présentation" : "Fermer"}
+                      {role === "tutor" ? t.stopPresenting : t.close}
                     </button>
                   )}
                 </div>
@@ -910,18 +1000,18 @@ export function Classroom(props: Props) {
               className="absolute inset-0 z-40 flex flex-col bg-earth-900 sm:static sm:w-96 sm:border-l sm:border-white/10"
             >
               <div className="flex items-center gap-1 overflow-x-auto border-b border-white/10 p-2">
-                {([["chat", "Discussion"], ["documents", "Documents"], ["notes", "Notes"], ...(role === "tutor" ? [["quiz", "Quiz"]] : []), ["assistant", "Assistant IA"]] as [Exclude<Panel, null>, string][]).map(([key, label]) => (
+                {(["chat", "documents", "notes", ...(role === "tutor" ? ["quiz"] : []), "assistant"] as Exclude<Panel, null>[]).map((key) => [key, t.tabs[key]] as const).map(([key, label]) => (
                   <button key={key} onClick={() => openPanel(key)} className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${panel === key ? "bg-white/15 font-semibold" : "text-sand-300 hover:bg-white/10"}`}>
                     {label}
                   </button>
                 ))}
-                <button onClick={() => setPanel(null)} aria-label="Fermer le panneau" className="ml-auto shrink-0 rounded-full p-1.5 hover:bg-white/10"><X size={18} /></button>
+                <button onClick={() => setPanel(null)} aria-label={t.closePanel} className="ml-auto shrink-0 rounded-full p-1.5 hover:bg-white/10"><X size={18} /></button>
               </div>
 
               {panel === "chat" && (
                 <>
                   <div className="flex-1 space-y-2 overflow-y-auto p-3">
-                    {chat.length === 0 && <p className="text-center text-sm text-sand-300">Écrivez ici les mots nouveaux, les corrections, les liens…</p>}
+                    {chat.length === 0 && <p className="text-center text-sm text-sand-300">{t.chatHint}</p>}
                     {chat.map((m) => {
                       const mine = m.author_id === me.id;
                       return (
@@ -933,8 +1023,8 @@ export function Classroom(props: Props) {
                     <div ref={chatEndRef} />
                   </div>
                   <form onSubmit={sendChat} className="flex gap-2 border-t border-white/10 p-3">
-                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message…" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-sm outline-none placeholder:text-sand-300" />
-                    <button className="rounded-full bg-clay-600 p-2.5 hover:bg-clay-700" aria-label="Envoyer"><Send size={16} /></button>
+                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t.messagePlaceholder} className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-sm outline-none placeholder:text-sand-300" />
+                    <button className="rounded-full bg-clay-600 p-2.5 hover:bg-clay-700" aria-label={t.send}><Send size={16} /></button>
                   </form>
                 </>
               )}
@@ -943,7 +1033,7 @@ export function Classroom(props: Props) {
                 <div className="flex-1 space-y-3 overflow-y-auto p-3">
                   {role === "tutor" && (
                     <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/20 p-4 text-sm hover:border-ochre-300 ${upload.busy ? "opacity-60" : ""}`}>
-                      <Upload size={18} /> {upload.busy ? "Envoi en cours…" : "Partager un document"}
+                      <Upload size={18} /> {upload.busy ? t.uploading : t.shareDocument}
                       <input
                         type="file"
                         multiple
@@ -960,7 +1050,7 @@ export function Classroom(props: Props) {
                   {upload.error && <p className="rounded-lg bg-clay-600/30 p-2 text-sm">{upload.error}</p>}
                   {documents.length === 0 ? (
                     <p className="text-center text-sm text-sand-300">
-                      {role === "tutor" ? "PDF, images, audio, Word, PowerPoint… (15 Mo max). Votre élève les voit immédiatement." : "Les documents partagés par votre tuteur apparaîtront ici."}
+                      {role === "tutor" ? t.tutorDocsHint : t.studentDocsHint}
                     </p>
                   ) : (
                     <ul className="space-y-2">
@@ -970,14 +1060,14 @@ export function Classroom(props: Props) {
                           <DocumentRow key={doc.id} doc={doc} dark>
                             <button
                               onClick={() => showOnStage(shown ? null : doc.id)}
-                              title={role === "tutor" ? (shown ? "Arrêter la présentation" : "Présenter à l'élève") : "Afficher en grand"}
-                              aria-label={role === "tutor" ? `Présenter ${doc.name}` : `Afficher ${doc.name}`}
+                              title={role === "tutor" ? (shown ? t.stopPresenting : t.present) : t.showLarge}
+                              aria-label={role === "tutor" ? t.presentName(doc.name) : t.showName(doc.name)}
                               className={`rounded-full p-2 ${shown ? "bg-ochre-400 text-forest-900" : "hover:bg-white/10"}`}
                             >
                               <Presentation size={16} />
                             </button>
                             {role === "tutor" && (
-                              <button onClick={() => removeDocument(doc.id)} title="Retirer" aria-label={`Retirer ${doc.name}`} className="rounded-full p-2 hover:bg-white/10"><Trash2 size={16} /></button>
+                              <button onClick={() => removeDocument(doc.id)} title={t.remove} aria-label={t.removeName(doc.name)} className="rounded-full p-2 hover:bg-white/10"><Trash2 size={16} /></button>
                             )}
                           </DocumentRow>
                         );
@@ -992,18 +1082,18 @@ export function Classroom(props: Props) {
                   {role === "tutor" ? (
                     <div className="space-y-3 text-sm">
                       <p className="text-xs text-sand-300">
-                        Votre élève voit ces notes en direct, et elles servent à préparer son résumé de révision. {notesSaved ? "✓ Enregistré" : "Enregistrement…"}
+                        {t.notesHint} {notesSaved ? t.saved : t.saving}
                       </p>
                       <label className="block">
-                        <span className="mb-1 block font-semibold">Points clés</span>
-                        <textarea value={notes.keyPoints} onChange={editNotes("keyPoints")} rows={5} className="w-full rounded-xl bg-white/10 p-3 outline-none" placeholder="Ce qu'on a vu, les erreurs fréquentes…" />
+                        <span className="mb-1 block font-semibold">{t.keyPoints}</span>
+                        <textarea value={notes.keyPoints} onChange={editNotes("keyPoints")} rows={5} className="w-full rounded-xl bg-white/10 p-3 outline-none" placeholder={t.keyPlaceholder} />
                       </label>
                       <label className="block">
-                        <span className="mb-1 block font-semibold">Vocabulaire <span className="font-normal text-sand-300">(une ligne par mot : mot = traduction)</span></span>
-                        <textarea value={notes.vocabulary} onChange={editNotes("vocabulary")} rows={6} className="w-full rounded-xl bg-white/10 p-3 font-mono outline-none" placeholder={"habari = comment ça va ?\nasante = merci"} />
+                        <span className="mb-1 block font-semibold">{t.vocabulary} <span className="font-normal text-sand-300">{t.vocabHint}</span></span>
+                        <textarea value={notes.vocabulary} onChange={editNotes("vocabulary")} rows={6} className="w-full rounded-xl bg-white/10 p-3 font-mono outline-none" placeholder={t.vocabPlaceholder} />
                       </label>
                       <label className="block">
-                        <span className="mb-1 block font-semibold">Devoirs</span>
+                        <span className="mb-1 block font-semibold">{t.homework}</span>
                         <textarea value={notes.homework} onChange={editNotes("homework")} rows={3} className="w-full rounded-xl bg-white/10 p-3 outline-none" />
                       </label>
                     </div>
@@ -1046,17 +1136,17 @@ export function Classroom(props: Props) {
       </div>
 
       <div className="relative flex flex-wrap items-center justify-center gap-2 border-t border-white/10 px-4 py-3 sm:gap-3">
-        <ControlButton on={micOn} label={micOn ? "Couper le micro" : "Activer le micro"} onClick={toggleMic}>{micOn ? <Mic size={20} /> : <MicOff size={20} />}</ControlButton>
-        <ControlButton on={camOn} label={camOn ? "Couper la caméra" : "Activer la caméra"} onClick={toggleCam}>{camOn ? <Video size={20} /> : <VideoOff size={20} />}</ControlButton>
-        <ControlButton on={!sharing} label={sharing ? "Arrêter le partage d'écran" : "Partager l'écran"} onClick={toggleShare}><MonitorUp size={20} /></ControlButton>
-        <ControlButton on={stage !== "board"} label={stage === "board" ? "Fermer le tableau" : "Tableau blanc"} onClick={() => showOnStage(stage === "board" ? null : "board")}><PenLine size={20} /></ControlButton>
+        <ControlButton on={micOn} label={micOn ? t.muteMic : t.unmuteMic} onClick={toggleMic}>{micOn ? <Mic size={20} /> : <MicOff size={20} />}</ControlButton>
+        <ControlButton on={camOn} label={camOn ? t.camOff : t.camOn} onClick={toggleCam}>{camOn ? <Video size={20} /> : <VideoOff size={20} />}</ControlButton>
+        <ControlButton on={!sharing} label={sharing ? t.stopShare : t.share} onClick={toggleShare}><MonitorUp size={20} /></ControlButton>
+        <ControlButton on={stage !== "board"} label={stage === "board" ? t.closeBoard : t.board} onClick={() => showOnStage(stage === "board" ? null : "board")}><PenLine size={20} /></ControlButton>
         <span className="relative">
-          <ControlButton on={!reactionsOpen} label="Réagir" onClick={() => setReactionsOpen((o) => !o)}><Smile size={20} /></ControlButton>
+          <ControlButton on={!reactionsOpen} label={t.react} onClick={() => setReactionsOpen((o) => !o)}><Smile size={20} /></ControlButton>
           <AnimatePresence>
             {reactionsOpen && (
               <motion.div initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }} className="absolute bottom-14 left-1/2 z-50 flex -translate-x-1/2 gap-1 rounded-full bg-white p-1.5 shadow-xl">
                 {REACTIONS.map((emoji) => (
-                  <motion.button key={emoji} whileHover={{ scale: 1.35, y: -4 }} whileTap={{ scale: 0.9 }} onClick={() => react(emoji)} className="rounded-full p-1.5 text-2xl" aria-label={`Réagir ${emoji}`}>
+                  <motion.button key={emoji} whileHover={{ scale: 1.35, y: -4 }} whileTap={{ scale: 0.9 }} onClick={() => react(emoji)} className="rounded-full p-1.5 text-2xl" aria-label={`${t.react} ${emoji}`}>
                     {emoji}
                   </motion.button>
                 ))}
@@ -1064,19 +1154,19 @@ export function Classroom(props: Props) {
             )}
           </AnimatePresence>
         </span>
-        <ControlButton on={!hands.me} label={hands.me ? "Baisser la main" : "Lever la main"} onClick={toggleHand}><Hand size={20} /></ControlButton>
+        <ControlButton on={!hands.me} label={hands.me ? t.lowerHand : t.raiseHand} onClick={toggleHand}><Hand size={20} /></ControlButton>
         <span className="relative">
-          <ControlButton on={panel !== "chat"} label="Discussion" onClick={() => openPanel("chat")}><MessageSquare size={20} /></ControlButton>
+          <ControlButton on={panel !== "chat"} label={t.tabs.chat} onClick={() => openPanel("chat")}><MessageSquare size={20} /></ControlButton>
           <Badge count={unreadChat} />
         </span>
         <span className="relative">
-          <ControlButton on={panel !== "documents"} label="Documents" onClick={() => openPanel("documents")}><FolderOpen size={20} /></ControlButton>
+          <ControlButton on={panel !== "documents"} label={t.tabs.documents} onClick={() => openPanel("documents")}><FolderOpen size={20} /></ControlButton>
           <Badge count={newDocs} />
         </span>
-        <ControlButton on={panel !== "notes"} label="Notes du cours" onClick={() => openPanel("notes")}><NotebookPen size={20} /></ControlButton>
-        {role === "tutor" && <ControlButton on={panel !== "quiz"} label="Quiz" onClick={() => openPanel("quiz")}><ListChecks size={20} /></ControlButton>}
-        <ControlButton on={panel !== "assistant"} label="Assistant IA et sous-titres" onClick={() => openPanel("assistant")}>{assistant.enabled ? <Subtitles size={20} /> : <Bot size={20} />}</ControlButton>
-        <ControlButton danger label="Quitter la classe" onClick={leave}><PhoneOff size={20} /></ControlButton>
+        <ControlButton on={panel !== "notes"} label={t.notes} onClick={() => openPanel("notes")}><NotebookPen size={20} /></ControlButton>
+        {role === "tutor" && <ControlButton on={panel !== "quiz"} label={t.tabs.quiz} onClick={() => openPanel("quiz")}><ListChecks size={20} /></ControlButton>}
+        <ControlButton on={panel !== "assistant"} label={t.assistant} onClick={() => openPanel("assistant")}>{assistant.enabled ? <Subtitles size={20} /> : <Bot size={20} />}</ControlButton>
+        <ControlButton danger label={t.leave} onClick={leave}><PhoneOff size={20} /></ControlButton>
       </div>
     </div>
   );

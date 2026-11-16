@@ -1,16 +1,30 @@
 import "server-only";
 import { Readable } from "node:stream";
 import { TUTOR_VIDEO_MAX_BYTES, TUTOR_VIDEO_MAX_SECONDS, TUTOR_VIDEO_TYPES } from "./constants";
+import type { Locale } from "@/i18n";
 import { getDb, type ObjectId, type TutorVideo } from "./db";
 
 // Tutors' presentation videos, stored in MongoDB GridFS (bucket "tutor_videos"), or a YouTube link.
 
-export function validateTutorVideo(file: File, seconds: number): string | null {
-  if (!TUTOR_VIDEO_TYPES.includes(file.type)) return "Format non accepté : envoyez une vidéo MP4, WebM ou MOV.";
-  if (file.size === 0) return "Le fichier est vide.";
-  if (file.size > TUTOR_VIDEO_MAX_BYTES) return `Vidéo trop lourde (${Math.round(TUTOR_VIDEO_MAX_BYTES / 1024 / 1024)} Mo maximum). Filmez en 720p ou raccourcissez-la.`;
+const MAX_MB = Math.round(TUTOR_VIDEO_MAX_BYTES / 1024 / 1024);
+const ERRORS: Record<Locale, { type: string; empty: string; heavy: string; long: string }> = {
+  en: {
+    type: "Format not accepted: upload an MP4, WebM or MOV video.", empty: "The file is empty.",
+    heavy: `Video too large (${MAX_MB} MB maximum). Film in 720p or shorten it.`, long: `Video too long: ${TUTOR_VIDEO_MAX_SECONDS / 60} minutes maximum.`,
+  },
+  fr: {
+    type: "Format non accepté : envoyez une vidéo MP4, WebM ou MOV.", empty: "Le fichier est vide.",
+    heavy: `Vidéo trop lourde (${MAX_MB} Mo maximum). Filmez en 720p ou raccourcissez-la.`, long: `Vidéo trop longue : ${TUTOR_VIDEO_MAX_SECONDS / 60} minutes maximum.`,
+  },
+};
+
+export function validateTutorVideo(file: File, seconds: number, locale: Locale): string | null {
+  const t = ERRORS[locale];
+  if (!TUTOR_VIDEO_TYPES.includes(file.type)) return t.type;
+  if (file.size === 0) return t.empty;
+  if (file.size > TUTOR_VIDEO_MAX_BYTES) return t.heavy;
   // Measured by the browser before sending; the size limit above is the server's safety net.
-  if (Number.isFinite(seconds) && seconds > TUTOR_VIDEO_MAX_SECONDS + 1) return `Vidéo trop longue : ${TUTOR_VIDEO_MAX_SECONDS / 60} minutes maximum.`;
+  if (Number.isFinite(seconds) && seconds > TUTOR_VIDEO_MAX_SECONDS + 1) return t.long;
   return null;
 }
 

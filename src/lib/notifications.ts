@@ -1,4 +1,5 @@
 import "server-only";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n";
 import { getDb, ObjectId, type NotificationKind } from "./db";
 
 // Automatic messages sent to a tutor about a student: they appear in the tutor's
@@ -12,11 +13,27 @@ const QUIET_PERIOD_MS: Record<NotificationKind, number> = { interest: 30 * DAY_M
 
 const firstName = (name: string) => name.split(" ")[0] || name;
 
-async function notify(kind: NotificationKind, studentId: ObjectId, tutorId: ObjectId, body: string): Promise<boolean> {
+// The texts, in the tutor's language (the one they last chose on the site).
+const TEXTS: Record<Locale, { interest: (name: string) => string; started: (name: string) => string; unpaid: (name: string) => string }> = {
+  en: {
+    interest: (name) => `${name} is interested in your profile. Write to them to introduce yourself and help them book a first lesson!`,
+    started: (name) => `${name} started booking a lesson with you but didn't finish. Send them a quick message to encourage them to book!`,
+    unpaid: (name) => `${name} picked a time slot with you but didn't complete the payment. A quick message can help them finish their booking!`,
+  },
+  fr: {
+    interest: (name) => `${name} s'intéresse à votre profil. Écrivez-lui pour vous présenter et l'aider à réserver un premier cours !`,
+    started: (name) => `${name} a commencé à réserver un cours avec vous mais ne l'a pas terminé. Envoyez-lui un petit message pour l'encourager à réserver !`,
+    unpaid: (name) => `${name} a choisi un créneau avec vous mais n'a pas finalisé le paiement. Un petit message peut l'aider à terminer sa réservation !`,
+  },
+};
+
+async function notify(kind: NotificationKind, studentId: ObjectId, tutorId: ObjectId, body: (texts: (typeof TEXTS)[Locale]) => string): Promise<boolean> {
   const db = await getDb();
   const recent = await db.messages.countDocuments({ kind, senderId: studentId, recipientId: tutorId, createdAt: { $gt: new Date(Date.now() - QUIET_PERIOD_MS[kind]) } });
   if (recent) return false;
-  await db.messages.insertOne({ _id: new ObjectId(), senderId: studentId, recipientId: tutorId, body, readAt: null, createdAt: new Date(), kind });
+  const tutor = await db.users.findOne({ _id: tutorId }, { projection: { locale: 1 } });
+  const text = body(TEXTS[tutor?.locale ?? DEFAULT_LOCALE]);
+  await db.messages.insertOne({ _id: new ObjectId(), senderId: studentId, recipientId: tutorId, body: text, readAt: null, createdAt: new Date(), kind });
   return true;
 }
 
@@ -28,7 +45,7 @@ export async function hasShownInterest(studentId: ObjectId, tutorId: ObjectId) {
 // "This student is interested in your profile, contact them."
 export async function notifyInterest(student: { _id: ObjectId; name: string }, tutorId: ObjectId) {
   const name = firstName(student.name);
-  return notify("interest", student._id, tutorId, `${name} s'intéresse à votre profil. Écrivez-lui pour vous présenter et l'aider à réserver un premier cours !`);
+  return notify("interest", student._id, tutorId, (t) => t.interest(name));
 }
 
 // The student picked a time slot on the tutor's profile.
@@ -79,12 +96,12 @@ export async function sendBookingReminders() {
     const { modifiedCount } = await db.bookingIntents.updateOne({ _id: intent._id, notifiedAt: null }, { $set: { notifiedAt: new Date() } });
     const name = nameOf.get(intent.studentId.toHexString());
     if (!modifiedCount || !name) continue;
-    await notify("booking_abandoned", intent.studentId, intent.tutorId, `${name} a commencé à réserver un cours avec vous mais ne l'a pas terminé. Envoyez-lui un petit message pour l'encourager à réserver !`);
+    await notify("booking_abandoned", intent.studentId, intent.tutorId, (t) => t.started(name));
   }
   for (const lesson of unpaid) {
     const { modifiedCount } = await db.lessons.updateOne({ _id: lesson._id, abandonNotifiedAt: { $exists: false } }, { $set: { abandonNotifiedAt: new Date() } });
     const name = nameOf.get(lesson.studentId.toHexString());
     if (!modifiedCount || !name) continue;
-    await notify("booking_abandoned", lesson.studentId, lesson.tutorId, `${name} a choisi un créneau avec vous mais n'a pas finalisé le paiement. Un petit message peut l'aider à terminer sa réservation !`);
+    await notify("booking_abandoned", lesson.studentId, lesson.tutorId, (t) => t.unpaid(name));
   }
 }

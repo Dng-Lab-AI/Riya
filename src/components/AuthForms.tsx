@@ -3,13 +3,37 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BookOpen, Check, Eye, EyeOff, Mic, X } from "lucide-react";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
 import { login, register, requestPasswordReset, resendVerification, resetPassword } from "@/lib/actions/auth";
 import { SubmitButton, useKeepValuesForm } from "./client";
 import { CountrySelect } from "./CountrySelect";
 import { FormAlert } from "./ui";
 
+const M = defineMessages({
+  en: {
+    hide: "Hide password", show: "Show password", password: "Password", minimum: "8 characters minimum", confirm: "Confirm the password",
+    match: "The passwords match", noMatch: "The passwords don't match", google: "Continue with Google", or: "or", email: "Email",
+    forgot: "Forgot password?", loggingIn: "Logging in…", login: "Log in", learn: "I want to learn", learnText: "Find a tutor and book lessons.",
+    teach: "I want to teach", teachText: "Share your language and set your prices.", hereFor: "You're here to…", googleSignUp: "Sign up with Google",
+    name: "Full name", country: "Country of residence", emailHint: "We'll send you a link to confirm this address.", creating: "Creating the account…",
+    create: "Create my account", emailAddress: "Email address", sending: "Sending…", resend: "Resend the email", accountEmail: "Account email address",
+    getLink: "Get a link", newPassword: "New password", saving: "Saving…", saveLogin: "Save and log me in",
+  },
+  fr: {
+    hide: "Masquer le mot de passe", show: "Afficher le mot de passe", password: "Mot de passe", minimum: "8 caractères minimum", confirm: "Confirmez le mot de passe",
+    match: "Les mots de passe correspondent", noMatch: "Les mots de passe ne correspondent pas", google: "Continuer avec Google", or: "ou", email: "E-mail",
+    forgot: "Mot de passe oublié ?", loggingIn: "Connexion…", login: "Se connecter", learn: "Je veux apprendre", learnText: "Trouvez un tuteur et réservez des cours.",
+    teach: "Je veux enseigner", teachText: "Partagez votre langue et fixez vos tarifs.", hereFor: "Vous êtes ici pour…", googleSignUp: "S'inscrire avec Google",
+    name: "Nom complet", country: "Pays de résidence", emailHint: "Nous vous enverrons un lien pour confirmer cette adresse.", creating: "Création du compte…",
+    create: "Créer mon compte", emailAddress: "Adresse e-mail", sending: "Envoi…", resend: "Renvoyer l'e-mail", accountEmail: "Adresse e-mail du compte",
+    getLink: "Recevoir un lien", newPassword: "Nouveau mot de passe", saving: "Enregistrement…", saveLogin: "Enregistrer et me connecter",
+  },
+});
+
 // Password field with a button to show or hide what is typed.
 export function PasswordInput({ id, name, autoComplete, minLength, value, onChange }: { id: string; name: string; autoComplete: string; minLength?: number; value?: string; onChange?: (value: string) => void }) {
+  const t = M[useLocale()];
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
@@ -27,7 +51,7 @@ export function PasswordInput({ id, name, autoComplete, minLength, value, onChan
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+        aria-label={visible ? t.hide : t.show}
         aria-pressed={visible}
         className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-earth-500 hover:text-earth-900"
       >
@@ -38,7 +62,8 @@ export function PasswordInput({ id, name, autoComplete, minLength, value, onChan
 }
 
 // New password typed twice, with live feedback on length and match.
-export function NewPasswordFields({ label = "Mot de passe" }: { label?: string }) {
+export function NewPasswordFields({ label }: { label?: string }) {
+  const t = M[useLocale()];
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const longEnough = password.length >= 8;
@@ -46,14 +71,14 @@ export function NewPasswordFields({ label = "Mot de passe" }: { label?: string }
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div>
-        <label className="label" htmlFor="password">{label}</label>
+        <label className="label" htmlFor="password">{label ?? t.password}</label>
         <PasswordInput id="password" name="password" autoComplete="new-password" minLength={8} value={password} onChange={setPassword} />
-        <Hint ok={longEnough} show={password.length > 0}>8 caractères minimum</Hint>
+        <Hint ok={longEnough} show={password.length > 0}>{t.minimum}</Hint>
       </div>
       <div>
-        <label className="label" htmlFor="password_confirm">Confirmez le mot de passe</label>
+        <label className="label" htmlFor="password_confirm">{t.confirm}</label>
         <PasswordInput id="password_confirm" name="password_confirm" autoComplete="new-password" minLength={8} value={confirm} onChange={setConfirm} />
-        <Hint ok={matches} show={confirm.length > 0}>{matches ? "Les mots de passe correspondent" : "Les mots de passe ne correspondent pas"}</Hint>
+        <Hint ok={matches} show={confirm.length > 0}>{matches ? t.match : t.noMatch}</Hint>
       </div>
     </div>
   );
@@ -79,25 +104,28 @@ function GoogleIcon() {
   );
 }
 
-export function GoogleButton({ role, suite, label = "Continuer avec Google" }: { role?: "student" | "tutor"; suite?: string; label?: string }) {
+export function GoogleButton({ role, suite, label }: { role?: "student" | "tutor"; suite?: string; label?: string }) {
+  const t = M[useLocale()];
   const params = new URLSearchParams({ ...(role ? { role } : {}), ...(suite ? { suite } : {}) });
   return (
     // A plain link: the browser must leave for Google's page.
     <a href={`/api/auth/google?${params}`} className="btn-outline w-full py-3">
-      <GoogleIcon /> {label}
+      <GoogleIcon /> {label ?? t.google}
     </a>
   );
 }
 
 function Separator() {
+  const t = M[useLocale()];
   return (
     <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-earth-400">
-      <span className="h-px flex-1 bg-sand-300" /> ou <span className="h-px flex-1 bg-sand-300" />
+      <span className="h-px flex-1 bg-sand-300" /> {t.or} <span className="h-px flex-1 bg-sand-300" />
     </div>
   );
 }
 
 export function LoginForm({ suite, google }: { suite: string; google: boolean }) {
+  const t = M[useLocale()];
   const { state, pending, onSubmit } = useKeepValuesForm(login);
   return (
     <div className="space-y-5">
@@ -110,36 +138,37 @@ export function LoginForm({ suite, google }: { suite: string; google: boolean })
       <form onSubmit={onSubmit} className="space-y-4">
         <input type="hidden" name="suite" value={suite} />
         <div>
-          <label className="label" htmlFor="email">E-mail</label>
+          <label className="label" htmlFor="email">{t.email}</label>
           <input id="email" name="email" type="email" autoComplete="email" required className="input" />
         </div>
         <div>
           <div className="flex items-baseline justify-between">
-            <label className="label" htmlFor="password">Mot de passe</label>
-            <Link href="/mot-de-passe-oublie" className="text-xs font-semibold text-clay-700 hover:underline">Mot de passe oublié ?</Link>
+            <label className="label" htmlFor="password">{t.password}</label>
+            <Link href="/mot-de-passe-oublie" className="text-xs font-semibold text-clay-700 hover:underline">{t.forgot}</Link>
           </div>
           <PasswordInput id="password" name="password" autoComplete="current-password" />
         </div>
         <FormAlert state={state} />
-        <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText="Connexion…">Se connecter</SubmitButton>
+        <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText={t.loggingIn}>{t.login}</SubmitButton>
       </form>
     </div>
   );
 }
 
 export function RegisterForm({ suite, defaultRole, google }: { suite: string; defaultRole: "student" | "tutor"; google: boolean }) {
+  const t = M[useLocale()];
   const { state, pending, onSubmit } = useKeepValuesForm(register);
   const [role, setRole] = useState(defaultRole);
   const roles = [
-    { value: "student", icon: BookOpen, title: "Je veux apprendre", text: "Trouvez un tuteur et réservez des cours." },
-    { value: "tutor", icon: Mic, title: "Je veux enseigner", text: "Partagez votre langue et fixez vos tarifs." },
+    { value: "student", icon: BookOpen, title: t.learn, text: t.learnText },
+    { value: "tutor", icon: Mic, title: t.teach, text: t.teachText },
   ] as const;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <input type="hidden" name="suite" value={suite} />
       <fieldset className="grid gap-3 sm:grid-cols-2">
-        <legend className="label">Vous êtes ici pour…</legend>
+        <legend className="label">{t.hereFor}</legend>
         {roles.map((r) => (
           <label
             key={r.value}
@@ -155,41 +184,42 @@ export function RegisterForm({ suite, defaultRole, google }: { suite: string; de
 
       {google && (
         <>
-          <GoogleButton role={role} suite={suite} label="S'inscrire avec Google" />
+          <GoogleButton role={role} suite={suite} label={t.googleSignUp} />
           <Separator />
         </>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="name">Nom complet</label>
+          <label className="label" htmlFor="name">{t.name}</label>
           <input id="name" name="name" autoComplete="name" required className="input" />
         </div>
         <div>
-          <label className="label" htmlFor="country">Pays de résidence</label>
+          <label className="label" htmlFor="country">{t.country}</label>
           <CountrySelect />
         </div>
       </div>
       <div>
-        <label className="label" htmlFor="email">E-mail</label>
+        <label className="label" htmlFor="email">{t.email}</label>
         <input id="email" name="email" type="email" autoComplete="email" required className="input" />
-        <p className="mt-1 text-xs text-earth-500">Nous vous enverrons un lien pour confirmer cette adresse.</p>
+        <p className="mt-1 text-xs text-earth-500">{t.emailHint}</p>
       </div>
       <NewPasswordFields />
       <FormAlert state={state} />
-      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText="Création du compte…">Créer mon compte</SubmitButton>
+      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText={t.creating}>{t.create}</SubmitButton>
     </form>
   );
 }
 
 export function ResendVerificationForm({ email }: { email: string }) {
+  const t = M[useLocale()];
   const { state, pending, onSubmit } = useKeepValuesForm(resendVerification);
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <label className="label" htmlFor="email">Adresse e-mail</label>
+      <label className="label" htmlFor="email">{t.emailAddress}</label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input id="email" name="email" type="email" defaultValue={email} required className="input" />
-        <SubmitButton pending={pending} className="btn-outline shrink-0" pendingText="Envoi…">Renvoyer l&apos;e-mail</SubmitButton>
+        <SubmitButton pending={pending} className="btn-outline shrink-0" pendingText={t.sending}>{t.resend}</SubmitButton>
       </div>
       <FormAlert state={state} />
     </form>
@@ -197,26 +227,28 @@ export function ResendVerificationForm({ email }: { email: string }) {
 }
 
 export function ForgotPasswordForm() {
+  const t = M[useLocale()];
   const { state, pending, onSubmit } = useKeepValuesForm(requestPasswordReset);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <label className="label" htmlFor="email">Adresse e-mail du compte</label>
+        <label className="label" htmlFor="email">{t.accountEmail}</label>
         <input id="email" name="email" type="email" autoComplete="email" required className="input" />
       </div>
       <FormAlert state={state} />
-      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText="Envoi…">Recevoir un lien</SubmitButton>
+      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText={t.sending}>{t.getLink}</SubmitButton>
     </form>
   );
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const t = M[useLocale()];
   const { state, pending, onSubmit } = useKeepValuesForm(resetPassword.bind(null, token));
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <NewPasswordFields label="Nouveau mot de passe" />
+      <NewPasswordFields label={t.newPassword} />
       <FormAlert state={state} />
-      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText="Enregistrement…">Enregistrer et me connecter</SubmitButton>
+      <SubmitButton pending={pending} className="btn-primary w-full py-3" pendingText={t.saving}>{t.saveLogin}</SubmitButton>
     </form>
   );
 }

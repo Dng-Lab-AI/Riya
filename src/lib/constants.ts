@@ -1,5 +1,6 @@
 // Shared, client-safe constants and helpers.
 
+import type { Locale } from "@/i18n";
 import { formatMoney } from "./payments/countries";
 
 export const SITE = {
@@ -11,6 +12,15 @@ export const SITE = {
   lessonMinutes: 50,
 };
 
+export const SITE_TEXT: Record<Locale, { tagline: string; description: string }> = {
+  en: {
+    tagline: "African languages, with the people who speak them",
+    description: "Learn Swahili, Wolof, Yoruba, Lingala and many more African languages with native tutors, in private online lessons.",
+  },
+  fr: { tagline: SITE.tagline, description: SITE.description },
+};
+
+// Region names are stored in French in the database (see regionLabel in @/i18n/catalog).
 export const REGIONS = [
   "Afrique de l'Ouest",
   "Afrique centrale",
@@ -20,56 +30,65 @@ export const REGIONS = [
   "Océan Indien",
 ] as const;
 
+// Choices stored by value; `label` is French, `en` English.
+export type Choice = { value: string; label: string; en: string };
+
 export const SPECIALTIES = [
-  { value: "debutants", label: "Débutants" },
-  { value: "conversation", label: "Conversation" },
-  { value: "enfants", label: "Enfants" },
-  { value: "diaspora", label: "Diaspora & héritage" },
-  { value: "voyage", label: "Voyage" },
-  { value: "affaires", label: "Affaires" },
-  { value: "culture", label: "Culture & musique" },
-  { value: "ecriture", label: "Écriture & alphabet" },
-] as const;
+  { value: "debutants", label: "Débutants", en: "Beginners" },
+  { value: "conversation", label: "Conversation", en: "Conversation" },
+  { value: "enfants", label: "Enfants", en: "Children" },
+  { value: "diaspora", label: "Diaspora & héritage", en: "Diaspora & heritage" },
+  { value: "voyage", label: "Voyage", en: "Travel" },
+  { value: "affaires", label: "Affaires", en: "Business" },
+  { value: "culture", label: "Culture & musique", en: "Culture & music" },
+  { value: "ecriture", label: "Écriture & alphabet", en: "Writing & alphabet" },
+] as const satisfies readonly Choice[];
 
 export const AVAILABILITY = [
-  { value: "matin", label: "Matin (6h – 12h)" },
-  { value: "apres-midi", label: "Après-midi (12h – 18h)" },
-  { value: "soir", label: "Soir (18h – 23h)" },
-  { value: "week-end", label: "Week-end" },
-] as const;
+  { value: "matin", label: "Matin (6h – 12h)", en: "Morning (6am – 12pm)" },
+  { value: "apres-midi", label: "Après-midi (12h – 18h)", en: "Afternoon (12pm – 6pm)" },
+  { value: "soir", label: "Soir (18h – 23h)", en: "Evening (6pm – 11pm)" },
+  { value: "week-end", label: "Week-end", en: "Weekend" },
+] as const satisfies readonly Choice[];
 
 export const FORUM_CATEGORIES = [
-  { value: "general", label: "Discussions générales" },
-  { value: "grammaire", label: "Grammaire & vocabulaire" },
-  { value: "echange", label: "Échange linguistique" },
-  { value: "ressources", label: "Ressources" },
-  { value: "culture", label: "Culture & traditions" },
-] as const;
+  { value: "general", label: "Discussions générales", en: "General discussion" },
+  { value: "grammaire", label: "Grammaire & vocabulaire", en: "Grammar & vocabulary" },
+  { value: "echange", label: "Échange linguistique", en: "Language exchange" },
+  { value: "ressources", label: "Ressources", en: "Resources" },
+  { value: "culture", label: "Culture & traditions", en: "Culture & traditions" },
+] as const satisfies readonly Choice[];
 
-export const LESSON_STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "En attente", className: "bg-ochre-100 text-ochre-800" },
-  confirmed: { label: "Confirmé", className: "bg-forest-100 text-forest-800" },
-  completed: { label: "Terminé", className: "bg-sand-200 text-earth-800" },
-  cancelled: { label: "Annulé", className: "bg-clay-100 text-clay-800" },
+export const LESSON_STATUS: Record<string, { label: Record<Locale, string>; className: string }> = {
+  pending: { label: { en: "Pending", fr: "En attente" }, className: "bg-ochre-100 text-ochre-800" },
+  confirmed: { label: { en: "Confirmed", fr: "Confirmé" }, className: "bg-forest-100 text-forest-800" },
+  completed: { label: { en: "Completed", fr: "Terminé" }, className: "bg-sand-200 text-earth-800" },
+  cancelled: { label: { en: "Cancelled", fr: "Annulé" }, className: "bg-clay-100 text-clay-800" },
 };
 
 // The fictional student of a tutor's practice classroom (the first word is used as a first name).
-export const DEMO_STUDENT_NAME = "Kofi (élève de démonstration)";
+export const DEMO_STUDENT_NAME: Record<Locale, string> = { en: "Kofi (demo student)", fr: "Kofi (élève de démonstration)" };
 
 // Start times offered when booking a lesson (local time of the student).
 export const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => `${String(i + 7).padStart(2, "0")}:00`);
 
-export function labelFor(list: readonly { value: string; label: string }[], value: string) {
-  return list.find((item) => item.value === value)?.label ?? value;
+export function labelFor(list: readonly Choice[], value: string, locale: Locale) {
+  const item = list.find((choice) => choice.value === value);
+  return item ? (locale === "en" ? item.en : item.label) : value;
+}
+
+// The choices with the label of the current language, for forms.
+export function choicesFor(list: readonly Choice[], locale: Locale) {
+  return list.map((choice) => ({ value: choice.value, label: locale === "en" ? choice.en : choice.label }));
 }
 
 export function splitList(value: string | null | undefined): string[] {
   return (value ?? "").split(",").map((v) => v.trim()).filter(Boolean);
 }
 
-// Tutor prices are in euros: "15 €", "12,75 €".
-export function formatPrice(amount: number) {
-  return formatMoney(amount, "EUR");
+// Tutor prices are in euros: "€15" / "15 €".
+export function formatPrice(amount: number, locale: Locale = "en") {
+  return formatMoney(amount, "EUR", locale);
 }
 
 // SQLite datetime('now') yields "YYYY-MM-DD HH:MM:SS" in UTC; turn it into ISO 8601.
@@ -77,22 +96,23 @@ export function toIso(value: string) {
   return value.includes("T") ? value : value.replace(" ", "T") + "Z";
 }
 
-export function timeAgo(value: string) {
+// "3 days ago" / "il y a 3 jours".
+export function timeAgo(value: string, locale: Locale) {
   const date = new Date(toIso(value));
   const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-  const units: [number, string][] = [
-    [60 * 60 * 24 * 365, "an"],
-    [60 * 60 * 24 * 30, "mois"],
-    [60 * 60 * 24 * 7, "semaine"],
-    [60 * 60 * 24, "jour"],
-    [60 * 60, "heure"],
-    [60, "minute"],
+  const units: [number, string, string, string][] = [
+    [60 * 60 * 24 * 365, "an", "ans", "year"],
+    [60 * 60 * 24 * 30, "mois", "mois", "month"],
+    [60 * 60 * 24 * 7, "semaine", "semaines", "week"],
+    [60 * 60 * 24, "jour", "jours", "day"],
+    [60 * 60, "heure", "heures", "hour"],
+    [60, "minute", "minutes", "minute"],
   ];
-  for (const [size, unit] of units) {
+  for (const [size, one, many, en] of units) {
     const n = Math.floor(seconds / size);
-    if (n >= 1) return `il y a ${n} ${unit}${n > 1 && unit !== "mois" ? "s" : ""}`;
+    if (n >= 1) return locale === "en" ? `${n} ${en}${n > 1 ? "s" : ""} ago` : `il y a ${n} ${n > 1 ? many : one}`;
   }
-  return "à l'instant";
+  return locale === "en" ? "just now" : "à l'instant";
 }
 
 // searchParams values can be arrays; we only ever use the first one.
@@ -111,6 +131,11 @@ export function withDe(language: string) {
   return startsWithVowel(name) ? `d'${name}` : `de ${name}`;
 }
 
+// "Swahili lesson" / "Cours de swahili".
+export function lessonOf(language: string, locale: Locale) {
+  return locale === "en" ? `${language} lesson` : `Cours ${withDe(language)}`;
+}
+
 // Files a tutor can share in a lesson (PDF, images, audio, office documents, text).
 export const LESSON_FILE_TYPES: Record<string, string> = {
   "application/pdf": "PDF",
@@ -122,7 +147,7 @@ export const LESSON_FILE_TYPES: Record<string, string> = {
   "audio/mp4": "Audio",
   "audio/wav": "Audio",
   "audio/ogg": "Audio",
-  "text/plain": "Texte",
+  "text/plain": "TXT",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
@@ -140,10 +165,11 @@ export function youtubeIdFrom(url: string): string | null {
   return m ? m[1] : null;
 }
 
-export function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
+export function formatBytes(bytes: number, locale: Locale) {
+  const [b, kb, mb] = locale === "en" ? ["B", "KB", "MB"] : ["o", "Ko", "Mo"];
+  if (bytes < 1024) return `${bytes} ${b}`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${kb}`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${mb}`;
 }
 
 // Tutor notes store vocabulary one entry per line: "mot = traduction".
@@ -166,14 +192,15 @@ export const REACTIONS = ["👏", "❤️", "😂", "🔥", "👍", "🎉", "�
 export const BOARD_COLORS = ["#22180f", "#b84e28", "#e09a1e", "#22623a", "#2563eb", "#ffffff"];
 
 // Speech recognition languages offered by browsers (Chrome / Edge), by lesson language.
-export const SPEECH_LANGS: Record<string, { code: string; label: string }> = {
-  swahili: { code: "sw-TZ", label: "Swahili" },
-  zoulou: { code: "zu-ZA", label: "Zoulou" },
-  amharique: { code: "am-ET", label: "Amharique" },
+export type SpeechLang = { code: string; label: Record<Locale, string> };
+export const SPEECH_LANGS: Record<string, SpeechLang> = {
+  swahili: { code: "sw-TZ", label: { en: "Swahili", fr: "Swahili" } },
+  zoulou: { code: "zu-ZA", label: { en: "Zulu", fr: "Zoulou" } },
+  amharique: { code: "am-ET", label: { en: "Amharic", fr: "Amharique" } },
 };
-export const BASE_SPEECH_LANGS = [
-  { code: "fr-FR", label: "Français" },
-  { code: "en-US", label: "Anglais" },
+export const BASE_SPEECH_LANGS: SpeechLang[] = [
+  { code: "en-US", label: { en: "English", fr: "Anglais" } },
+  { code: "fr-FR", label: { en: "French", fr: "Français" } },
 ];
 
 // Anchor id for a region section on /langues, e.g. "Afrique de l'Ouest" -> "afrique-de-l-ouest".

@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { Star } from "lucide-react";
 import type { Photo } from "@/lib/images";
 
 // Small presentational building blocks shared across pages (server-safe).
@@ -21,26 +20,8 @@ export function Avatar({ name, src, size = 48, className = "" }: { name: string;
   );
 }
 
-export function Rating({ value, count }: { value: number | null; count: number }) {
-  if (!count || value === null) return <span className="chip bg-forest-100 text-forest-800">Nouveau</span>;
-  return (
-    <span className="inline-flex items-center gap-1 text-sm font-semibold text-earth-900">
-      <Star size={15} className="fill-ochre-400 text-ochre-400" />
-      {value.toFixed(1)}
-      <span className="font-normal text-earth-500">({count} avis)</span>
-    </span>
-  );
-}
-
-export function Stars({ value, size = 14 }: { value: number; size?: number }) {
-  return (
-    <span className="inline-flex" aria-label={`${value} sur 5`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star key={i} size={size} className={i <= value ? "fill-ochre-400 text-ochre-400" : "text-sand-300"} />
-      ))}
-    </span>
-  );
-}
+// Rating and Stars speak the visitor's language, so they live in a client file.
+export { Rating, Stars } from "./Rating";
 
 export function FormAlert({ state }: { state: { error?: string; success?: string } | undefined }) {
   if (state?.error) return <p role="alert" className="rounded-xl bg-clay-50 px-4 py-3 text-sm font-medium text-clay-800">{state.error}</p>;

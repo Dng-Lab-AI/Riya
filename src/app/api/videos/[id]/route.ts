@@ -6,10 +6,10 @@ import { getDb, toObjectId } from "@/lib/db";
 // Supports byte ranges, which browsers need to seek and which Safari needs to play at all.
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/videos/[id]">) {
   const fileId = toObjectId((await ctx.params).id);
-  if (!fileId) return new Response("Vidéo introuvable", { status: 404 });
+  if (!fileId) return new Response("Video not found", { status: 404 });
   const db = await getDb();
   const file = await db.videos.find({ _id: fileId }).next();
-  if (!file) return new Response("Vidéo introuvable", { status: 404 });
+  if (!file) return new Response("Video not found", { status: 404 });
 
   const size = file.length;
   const contentType = (file.metadata as { contentType?: string } | undefined)?.contentType ?? "video/mp4";

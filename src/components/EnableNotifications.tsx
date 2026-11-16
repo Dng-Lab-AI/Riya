@@ -2,6 +2,7 @@
 
 import { useReducer, useSyncExternalStore } from "react";
 import { Bell, BellRing } from "lucide-react";
+import { useLocale } from "@/i18n/client";
 
 const subscribe = () => () => {};
 
@@ -11,6 +12,7 @@ export function EnableNotifications() {
   // Rendered only after mounting, so the server and client first paint agree.
   const mounted = useSyncExternalStore(subscribe, () => true, () => false);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const en = useLocale() === "en";
 
   if (!mounted || typeof Notification === "undefined") return null;
   const permission = Notification.permission;
@@ -29,8 +31,8 @@ export function EnableNotifications() {
     <button type="button" onClick={ask} className="btn-outline mb-4 text-sm" disabled={permission === "denied"}>
       {permission === "denied" ? <BellRing size={16} /> : <Bell size={16} />}
       {permission === "denied"
-        ? "Notifications bloquées (à réautoriser dans votre navigateur)"
-        : "Être prévenu des nouveaux messages"}
+        ? (en ? "Notifications blocked (allow them again in your browser)" : "Notifications bloquées (à réautoriser dans votre navigateur)")
+        : (en ? "Get notified of new messages" : "Être prévenu des nouveaux messages")}
     </button>
   );
 }

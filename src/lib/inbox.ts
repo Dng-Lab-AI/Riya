@@ -53,7 +53,7 @@ export async function getMessageContacts(userId: ObjectId, role: Role): Promise<
   const people = await db.users
     .find({ _id: { $in: ids }, status: "active", role: role === "tutor" ? "student" : "tutor" }, { projection: { name: 1, avatarUrl: 1, role: 1 } })
     .toArray();
-  return people.map((u) => ({ id: u._id.toHexString(), name: u.name, avatar_url: u.avatarUrl, role: u.role })).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  return people.map((u) => ({ id: u._id.toHexString(), name: u.name, avatar_url: u.avatarUrl, role: u.role })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // What the two members have done together, shown at the top of their conversation.

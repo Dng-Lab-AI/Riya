@@ -1,3 +1,4 @@
+import { getLocale } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession } from "@/lib/auth";
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   try {
     profile = await fetchGoogleProfile(code, saved.verifier, `${await siteOrigin()}/api/auth/google/callback`);
   } catch (err) {
-    console.error("Connexion Google", err);
+    console.error("Google sign-in", err);
     redirect("/connexion?erreur=google");
   }
   if (!profile.email || !profile.email_verified) redirect("/connexion?erreur=google-email");
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
   } else {
     const doc: UserDoc = {
       _id: new ObjectId(), name: profile.name || email.split("@")[0], email, passwordHash: "", role: saved.role, status: "active",
-      country: "", avatarUrl: profile.picture ?? "", favorites: [], emailVerified: true, googleId: profile.sub, createdAt: new Date(),
+      country: "", avatarUrl: profile.picture ?? "", favorites: [], emailVerified: true, googleId: profile.sub, createdAt: new Date(), locale: await getLocale(),
       ...(saved.role === "tutor" ? { tutor: emptyTutorProfile() } : {}),
     };
     await db.users.insertOne(doc);
