@@ -5,6 +5,7 @@ import { countryName } from "@/i18n/catalog";
 import { getLocale } from "@/i18n/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/queries";
+import { countTutorsToReview } from "@/lib/tutor-review";
 
 const ROLE_LABELS: Record<Locale, Record<string, string>> = {
   en: { student: "Student", tutor: "Tutor", admin: "Riya team" },
@@ -16,7 +17,7 @@ export default async function EspaceLayout({ children }: { children: React.React
   const user = await getCurrentUser();
   // Each page sends signed-out visitors to the login page with the right return path.
   if (!user) return children;
-  const [unread, locale] = await Promise.all([getUnreadCount(user._id), getLocale()]);
+  const [unread, locale, toReview] = await Promise.all([getUnreadCount(user._id), getLocale(), user.role === "admin" ? countTutorsToReview() : 0]);
 
   return (
     <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:py-8">
@@ -28,7 +29,7 @@ export default async function EspaceLayout({ children }: { children: React.React
             <p className="truncate text-xs text-earth-500">{ROLE_LABELS[locale][user.role] ?? user.role}{user.country && ` · ${countryName(user.country, locale)}`}</p>
           </div>
         </div>
-        <EspaceNav role={user.role} userId={user.id} unread={unread} />
+        <EspaceNav role={user.role} userId={user.id} unread={unread} toReview={toReview} />
       </aside>
       <div className="min-w-0">{children}</div>
     </div>

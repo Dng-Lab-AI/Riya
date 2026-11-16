@@ -25,7 +25,8 @@ const M = defineMessages({
 type Item = { href: string; label: string; icon: typeof CalendarDays; badge?: number };
 
 // Account sidebar: one link per zone, the current one highlighted.
-export function EspaceNav({ role, userId, unread }: { role: string; userId: string; unread: number }) {
+// toReview: tutor profiles waiting for the team (administrators only).
+export function EspaceNav({ role, userId, unread, toReview = 0 }: { role: string; userId: string; unread: number; toReview?: number }) {
   const pathname = usePathname();
   const t = M[useLocale()];
   const sections: { title: string; items: Item[] }[] = [
@@ -62,7 +63,7 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
         { href: "/profil/securite", label: t.security, icon: ShieldCheck },
       ],
     },
-    ...(role === "admin" ? [{ title: t.team, items: [{ href: "/admin", label: t.admin, icon: Settings }] }] : []),
+    ...(role === "admin" ? [{ title: t.team, items: [{ href: "/admin", label: t.admin, icon: Settings, badge: toReview }] }] : []),
   ];
   // "/profil" must not stay highlighted on its sub-pages, and "/messages" covers each thread.
   const isActive = (href: string) => pathname === href || (href !== "/profil" && pathname.startsWith(`${href}/`));
