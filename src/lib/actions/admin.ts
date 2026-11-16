@@ -260,7 +260,7 @@ export async function deleteMember(userId: string, _prev: FormState, formData: F
   ]);
   await db.users.deleteOne({ _id: user._id });
   await log(admin, user, "delete", cancelled ? `${cancelled} lesson(s) cancelled` : "");
-  refreshAll();
+  // No refresh of the current page: it would turn into "not found" before the form leads to the list.
   return { success: t.deleted };
 }
 
