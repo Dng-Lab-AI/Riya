@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ExternalLink, LayoutDashboard, LogOut, MessageCircle, UserCheck, Users } from "lucide-react";
+import { ExternalLink, LayoutDashboard, LogOut, MessageCircle, ShieldCheck, UserCheck, Users } from "lucide-react";
 import { defineMessages } from "@/i18n";
 import { useLocale } from "@/i18n/client";
 import { adminLogout } from "@/lib/actions/admin";
 import { LanguageSwitcher } from "../LanguageSwitcher";
 
 const M = defineMessages({
-  en: { dashboard: "Dashboard", members: "Members", review: "Tutors to approve", messages: "Messages", site: "Public site", logout: "Log out", team: "Riya team" },
-  fr: { dashboard: "Tableau de bord", members: "Membres", review: "Tuteurs à valider", messages: "Messages", site: "Site public", logout: "Se déconnecter", team: "Équipe Riya" },
+  en: { dashboard: "Dashboard", members: "Members", review: "Tutors to approve", messages: "Messages", teamPage: "Team", site: "Public site", logout: "Log out", team: "Riya team" },
+  fr: { dashboard: "Tableau de bord", members: "Membres", review: "Tuteurs à valider", messages: "Messages", teamPage: "Équipe", site: "Site public", logout: "Se déconnecter", team: "Équipe Riya" },
 });
 
 // Sidebar of the admin site (a row of pills on phones).
@@ -23,6 +23,7 @@ export function AdminNav({ name, toReview, unread, publicUrl }: { name: string; 
     { href: "/utilisateurs", label: t.members, icon: Users, badge: 0, active: pathname.startsWith("/utilisateurs") },
     { href: "/#a-valider", label: t.review, icon: UserCheck, badge: toReview, active: false },
     { href: "/messages", label: t.messages, icon: MessageCircle, badge: unread, active: pathname.startsWith("/messages") },
+    { href: "/equipe", label: t.teamPage, icon: ShieldCheck, badge: 0, active: pathname.startsWith("/equipe") },
   ];
 
   return (

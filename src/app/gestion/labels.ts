@@ -29,9 +29,11 @@ export const ACTION_LABELS: Record<Locale, Record<AdminLogAction, string>> = {
   en: {
     approve: "Tutor approved", hide: "Hidden from search", ask_changes: "Changes asked", suspend: "Suspended", block: "Blocked",
     reactivate: "Reactivated", delete: "Account deleted", role: "Role changed", message: "Message sent",
+    admin_add: "Made administrator", admin_remove: "Administrator rights removed",
   },
   fr: {
     approve: "Tuteur validé", hide: "Masqué de la recherche", ask_changes: "Modifications demandées", suspend: "Suspendu", block: "Bloqué",
     reactivate: "Réactivé", delete: "Compte supprimé", role: "Rôle modifié", message: "Message envoyé",
+    admin_add: "Nommé administrateur", admin_remove: "Droits d'administrateur retirés",
   },
 };

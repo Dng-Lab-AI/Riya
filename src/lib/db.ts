@@ -1,6 +1,6 @@
 import "server-only";
 import { GridFSBucket, MongoClient, ObjectId, type Binary, type Collection, type Db } from "mongodb";
-import { seed } from "./seed";
+import { ensureDefaultAdmin, seed } from "./seed";
 
 // ── Document shapes ───────────────────────────────────────
 
@@ -79,7 +79,9 @@ export type UserDoc = {
 };
 
 // What an administrator did to a member's account (shown on the member's page of the admin site).
-export type AdminLogAction = "approve" | "hide" | "ask_changes" | "suspend" | "block" | "reactivate" | "delete" | "role" | "message";
+export type AdminLogAction =
+  | "approve" | "hide" | "ask_changes" | "suspend" | "block" | "reactivate" | "delete" | "role" | "message"
+  | "admin_add" | "admin_remove";
 export type AdminLogDoc = {
   _id: ObjectId;
   adminId: ObjectId;
@@ -385,13 +387,14 @@ async function init(): Promise<Collections> {
   // The unique "seed" marker makes sure only one process ever seeds.
   const claimed = await c.meta.insertOne({ _id: "seed", at: new Date() }).then(() => true, () => false);
   if (claimed) await seed(c);
+  await ensureDefaultAdmin(c);
   return c;
 }
 
 // The connection is kept on globalThis so it survives hot reloads in development.
 // Bump this whenever a collection or index is added: a server already running then
 // rebuilds its cache instead of serving an object that lacks the new collection.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const globalForDb = globalThis as unknown as { riyaDb?: Promise<Collections>; riyaDbVersion?: number };
 
