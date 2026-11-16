@@ -4,6 +4,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb, type ObjectId, type Role, type UserDoc } from "./db";
+import { adminOrigin } from "./site";
 
 const COOKIE_NAME = "riya_session";
 const SESSION_DAYS = 30;
@@ -88,10 +89,11 @@ export async function requireUser(redirectTo = "/"): Promise<SessionUser> {
   return user;
 }
 
-// The admin site (admin.<domain>) has its own login page, at /connexion on that host.
+// The admin site (admin.<domain>) has its own login page, at /connexion on that host (full address:
+// from a server action, a relative redirect would be rendered without the proxy).
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/connexion");
+  if (!user || user.role !== "admin") redirect(`${await adminOrigin()}/connexion`);
   return user;
 }
 

@@ -4,6 +4,7 @@ import { AdminLoginForm } from "@/components/admin/AdminForms";
 import { defineMessages } from "@/i18n";
 import { getLocale, titled } from "@/i18n/server";
 import { getCurrentUser } from "@/lib/auth";
+import { adminOrigin } from "@/lib/site";
 
 const M = defineMessages({
   en: { title: "Riya administration", lead: "Reserved for the Riya team. Log in with your administrator account." },
@@ -14,7 +15,7 @@ export const generateMetadata = () => titled({ en: "Administration login", fr: "
 
 export default async function AdminLoginPage() {
   const user = await getCurrentUser();
-  if (user?.role === "admin") redirect("/");
+  if (user?.role === "admin") redirect(`${await adminOrigin()}/`);
   const t = M[await getLocale()];
   return (
     <div className="w-full max-w-sm rounded-[1.75rem] bg-white p-8 shadow-xl">

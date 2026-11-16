@@ -9,11 +9,14 @@ import { sendActionEmail } from "../mail";
 import { moderationMessage } from "../moderation";
 import { verifyPassword } from "../password";
 import { refundLesson } from "../payments";
-import { publicOrigin } from "../site";
+import { adminOrigin, publicOrigin } from "../site";
 import { emptyTutorProfile } from "../tutor-profile";
 import { tellTutorDecision } from "../tutor-review";
 import { refreshAll, text, type FormState } from "./shared";
 
+// Redirects use the full address of the admin site: a relative one, from a server action, would be
+// rendered without the proxy (src/proxy.ts) and show the public page at that path.
+//
 // Actions of the admin site (admin.<domain>). Each one checks that an administrator is logged in,
 // never acts on an administrator account (except to write to them), and is written to the admin log.
 
@@ -108,12 +111,12 @@ export async function adminLogin(_prev: FormState, formData: FormData): Promise<
   if (user.role !== "admin") return { error: t.notAdmin };
   if (!(await isActive(user))) return { error: moderationMessage(user, locale) };
   await createSession(user._id);
-  redirect("/");
+  redirect(`${await adminOrigin()}/`);
 }
 
 export async function adminLogout() {
   await destroySession();
-  redirect("/connexion");
+  redirect(`${await adminOrigin()}/connexion`);
 }
 
 // ── Tutors ───────────────────────────────────────────────
@@ -259,7 +262,7 @@ export async function deleteMember(userId: string, _prev: FormState, formData: F
   await db.users.deleteOne({ _id: user._id });
   await log(admin, user, "delete", cancelled ? `${cancelled} lesson(s) cancelled` : "");
   refreshAll();
-  redirect("/utilisateurs?supprime=1");
+  redirect(`${await adminOrigin()}/utilisateurs?supprime=1`);
 }
 
 // ── Messages ─────────────────────────────────────────────
