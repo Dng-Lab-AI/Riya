@@ -29,6 +29,20 @@ Ouvrez http://localhost:3000. Au premier accès, la base `riya` est remplie avec
 
 Pour repartir de zéro : `npm run db:reset`, puis redémarrez `npm run dev`.
 
+## Site d'administration
+
+L'administration est un site à part, sur le sous-domaine `admin.` : **http://admin.localhost:3000** en développement, `https://admin.votre-domaine` en production. Elle a sa propre page de connexion, réservée aux comptes administrateurs (compte de démo : `admin@riya.africa` / `admin1234`).
+
+Pour créer un compte administrateur (ou donner ce rôle à un compte existant) dans la base de `MONGODB_URI` :
+
+```bash
+npm run admin:create -- vous@exemple.com "Votre nom"
+```
+
+Le mot de passe est demandé dans le terminal. On y trouve : le tableau de bord, la validation des tuteurs, la liste des membres (recherche, filtres) et la fiche de chacun (activité, cours, paiements), avec les actions suspendre, bloquer, réactiver, supprimer, changer de rôle et écrire au membre. Chaque action est notée dans l'historique du membre.
+
+En production, faites pointer `admin.votre-domaine` vers la même application que le site public ; `ADMIN_URL` permet de donner une autre adresse aux liens envoyés par e-mail.
+
 ## Tester la salle de classe vidéo
 
 1. Ouvrez deux navigateurs différents (ou une fenêtre normale et une fenêtre privée).
