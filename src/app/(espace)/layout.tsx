@@ -1,9 +1,11 @@
+import { after } from "next/server";
 import { EspaceNav } from "@/components/espace/EspaceNav";
 import { Avatar } from "@/components/ui";
 import type { Locale } from "@/i18n";
 import { countryName } from "@/i18n/catalog";
 import { getLocale } from "@/i18n/server";
 import { getCurrentUser } from "@/lib/auth";
+import { runScheduledJobs } from "@/lib/jobs";
 import { getUnreadCount } from "@/lib/queries";
 import { countTutorsToReview } from "@/lib/tutor-review";
 
@@ -17,6 +19,8 @@ export default async function EspaceLayout({ children }: { children: React.React
   const user = await getCurrentUser();
   // Each page sends signed-out visitors to the login page with the right return path.
   if (!user) return children;
+  // Lesson e-mails and reminders go out as members use the site (at most once a minute).
+  after(() => runScheduledJobs());
   const [unread, locale, toReview] = await Promise.all([getUnreadCount(user._id), getLocale(), user.role === "admin" ? countTutorsToReview() : 0]);
 
   return (

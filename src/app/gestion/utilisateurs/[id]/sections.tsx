@@ -3,10 +3,12 @@ import { ChevronRight, Star } from "lucide-react";
 import { DomainMeters } from "@/components/charts";
 import { Avatar } from "@/components/ui";
 import { defineMessages, intlLocale, type Locale } from "@/i18n";
+import { reportsAbout } from "@/lib/admin-ops";
 import { getStudentTutorsForAdmin, getTutorStudentsForAdmin } from "@/lib/admin-progress";
 import { timeAgo } from "@/lib/constants";
 import type { ObjectId } from "@/lib/db";
 import { getStudentProgress } from "@/lib/progress";
+import { REPORT_REASON_LABELS } from "../../labels";
 
 // Sections of a member's page on the admin site: a tutor's students, a student's progress.
 
@@ -120,6 +122,37 @@ export async function StudentProgressSection({ studentId, locale }: { studentId:
           ))}
         </ul>
       </div>
+    </section>
+  );
+}
+
+const R = defineMessages({
+  en: { title: (n: number) => `Reports about this member (${n})`, by: "by", open: "to handle", handled: "handled", all: "All reports" },
+  fr: { title: (n: number) => `Signalements concernant ce membre (${n})`, by: "par", open: "à traiter", handled: "traité", all: "Tous les signalements" },
+});
+
+// Reports other members made about this one (only shown when there are some).
+export async function MemberReportsSection({ userId, locale }: { userId: ObjectId; locale: Locale }) {
+  const reports = await reportsAbout(userId);
+  if (!reports.length) return null;
+  const t = R[locale];
+  return (
+    <section className="card space-y-3 border-clay-200 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-xl font-semibold text-clay-800">{t.title(reports.length)}</h2>
+        <Link href="/signalements" className="text-sm font-semibold underline underline-offset-4">{t.all}</Link>
+      </div>
+      <ul className="space-y-3 text-sm">
+        {reports.map((r) => (
+          <li key={r.id}>
+            <p className="font-semibold">
+              {REPORT_REASON_LABELS[locale][r.reason]} <span className={`chip ml-1 ${r.status === "open" ? "bg-clay-100 text-clay-800" : "bg-forest-100 text-forest-800"}`}>{r.status === "open" ? t.open : t.handled}</span>
+            </p>
+            <p className="line-clamp-3 whitespace-pre-line text-earth-700">{r.details}</p>
+            <p className="text-xs text-earth-500">{t.by} {r.reporter.name} · {timeAgo(r.created_at, locale)}{r.resolution && ` · ${r.resolution}`}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

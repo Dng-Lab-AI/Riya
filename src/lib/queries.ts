@@ -682,7 +682,7 @@ export async function getStudentPayments(userId: ObjectId): Promise<PaymentRow[]
   }));
 }
 
-export type EarningRow = { lesson_id: string; starts_at: string; other_name: string; language_name: string; price: number; net: number };
+export type EarningRow = { lesson_id: string; starts_at: string; other_name: string; language_name: string; price: number; net: number; paid_out: boolean };
 
 // What a tutor earned on each completed lesson, after Riya's commission.
 export async function getTutorEarnings(userId: ObjectId, commission: number): Promise<EarningRow[]> {
@@ -697,5 +697,6 @@ export async function getTutorEarnings(userId: ObjectId, commission: number): Pr
     language_name: names.get(l.languageSlug) ?? l.languageSlug,
     price: l.price,
     net: Math.round(l.price * (1 - commission) * 100) / 100,
+    paid_out: !!l.payoutId,
   }));
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Archive, ArchiveRestore, ArrowLeft, CalendarPlus, ExternalLink } from "lucide-react";
 import { LocalDateTime } from "@/components/client";
 import { LiveThread } from "@/components/LiveThread";
+import { ReportButton } from "@/components/ReportButton";
 import { Avatar } from "@/components/ui";
 import { defineMessages } from "@/i18n";
 import { countryName } from "@/i18n/catalog";
@@ -77,6 +78,7 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
             {archived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
           </button>
         </form>
+        {other.role !== "admin" && <ReportButton targetId={other.id} name={other.name} compact />}
       </header>
 
       <LiveThread otherId={other.id} otherFirstName={other.name.split(" ")[0]} me={user.id} initial={messages} />

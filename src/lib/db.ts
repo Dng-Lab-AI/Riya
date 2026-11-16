@@ -81,7 +81,28 @@ export type UserDoc = {
 // What an administrator did to a member's account (shown on the member's page of the admin site).
 export type AdminLogAction =
   | "approve" | "hide" | "ask_changes" | "suspend" | "block" | "reactivate" | "delete" | "role" | "message"
-  | "admin_add" | "admin_remove";
+  | "admin_add" | "admin_remove" | "payout" | "report_resolved";
+
+// A member reported by another member (admin site: Reports).
+export type ReportReason = "behaviour" | "no_show" | "spam" | "fraud" | "content" | "other";
+export type ReportDoc = {
+  _id: ObjectId;
+  reporterId: ObjectId;
+  targetId: ObjectId;
+  reason: ReportReason;
+  details: string;
+  status: "open" | "resolved";
+  createdAt: Date;
+  resolvedAt?: Date;
+  resolvedBy?: ObjectId;
+  resolution?: string;
+};
+
+// Money paid out to a tutor for completed lessons (admin site: Payments).
+export type PayoutDoc = { _id: ObjectId; tutorId: ObjectId; lessonIds: ObjectId[]; amount: number; reference: string; adminId: ObjectId; at: Date };
+
+// A message sent by the team to a whole group of members (admin site: Announcements).
+export type AnnouncementDoc = { _id: ObjectId; adminId: ObjectId; audience: "all" | "students" | "tutors"; body: string; recipients: number; emailed: boolean; at: Date };
 export type AdminLogDoc = {
   _id: ObjectId;
   adminId: ObjectId;
@@ -158,6 +179,10 @@ export type LessonDoc = {
   seriesId?: ObjectId;
   // When the tutor was told that the student left this booking unpaid.
   abandonNotifiedAt?: Date;
+  // E-mails already sent about this lesson (lib/lesson-mails.ts), so each one goes out once.
+  mails?: { request?: Date; proposal?: Date; confirmed?: Date; reminder?: Date; cancelled?: Date };
+  // Set when the tutor's share of this lesson has been paid out by the Riya team.
+  payoutId?: ObjectId;
   // Practice classroom of a tutor (fictional student): never listed, counted or billed.
   demo?: true;
   // Minutes the tutor added at the end of the lesson from the classroom (MAX_EXTRA_MINUTES at most).
@@ -296,6 +321,9 @@ export type Collections = {
   bookingIntents: Collection<BookingIntentDoc>;
   profileViews: Collection<ProfileViewDoc>;
   adminLogs: Collection<AdminLogDoc>;
+  reports: Collection<ReportDoc>;
+  payouts: Collection<PayoutDoc>;
+  announcements: Collection<AnnouncementDoc>;
   files: GridFSBucket;
   // Tutors' presentation videos (metadata: { tutorId, contentType }).
   videos: GridFSBucket;
@@ -325,6 +353,9 @@ function collectionsOf(db: Db): Collections {
     bookingIntents: db.collection("booking_intents"),
     profileViews: db.collection("profile_views"),
     adminLogs: db.collection("admin_logs"),
+    reports: db.collection("reports"),
+    payouts: db.collection("payouts"),
+    announcements: db.collection("announcements"),
     files: new GridFSBucket(db, { bucketName: "lesson_files" }),
     videos: new GridFSBucket(db, { bucketName: "tutor_videos" }),
     meta: db.collection("meta"),
@@ -376,6 +407,10 @@ async function init(): Promise<Collections> {
     c.profileViews.createIndex({ tutorId: 1, day: 1, visitor: 1 }, { unique: true }),
     c.adminLogs.createIndex({ userId: 1, at: -1 }),
     c.adminLogs.createIndex({ at: -1 }),
+    c.reports.createIndex({ status: 1, createdAt: -1 }),
+    c.reports.createIndex({ targetId: 1, createdAt: -1 }),
+    c.payouts.createIndex({ tutorId: 1, at: -1 }),
+    c.lessons.createIndex({ status: 1, startsAt: 1 }),
     c.users.createIndex({ lastSeenAt: -1 }),
     c.profileViews.createIndex({ at: 1 }, { expireAfterSeconds: 400 * 24 * 60 * 60 }),
     c.bookingIntents.createIndex({ completedAt: 1, notifiedAt: 1, lastActivityAt: 1 }),
@@ -394,7 +429,7 @@ async function init(): Promise<Collections> {
 // The connection is kept on globalThis so it survives hot reloads in development.
 // Bump this whenever a collection or index is added: a server already running then
 // rebuilds its cache instead of serving an object that lacks the new collection.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const globalForDb = globalThis as unknown as { riyaDb?: Promise<Collections>; riyaDbVersion?: number };
 
