@@ -3,10 +3,12 @@ import type { Collections, FeedbackDoc, LessonDoc, ReviewDoc, TutorProfile } fro
 import { hashPassword } from "./password";
 
 // Demo content inserted the first time the database is created.
-// Every demo account uses the password below; the admin has its own.
+// Every demo account uses the password below.
 export const DEMO_PASSWORD = "riya1234";
-export const ADMIN_EMAIL = "admin@riya.africa";
-export const ADMIN_PASSWORD = "admin1234";
+// Default administrator of the admin site: created with the demo data, and on any database that does
+// not have this account yet (see ensureDefaultAdmin). DEFAULT_ADMIN_EMAIL / DEFAULT_ADMIN_PASSWORD change it.
+export const ADMIN_EMAIL = (process.env.DEFAULT_ADMIN_EMAIL || "riya@gmail.com").toLowerCase();
+export const ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "riya1234";
 
 const LANGUAGES = [
   {
@@ -257,6 +259,18 @@ function inDays(days: number, hour: number) {
   return d;
 }
 
+// The default administrator, if no account uses its e-mail yet. An existing account is never changed
+// (its password may have been changed since).
+export async function ensureDefaultAdmin(c: Collections) {
+  if (await c.users.countDocuments({ email: ADMIN_EMAIL }, { limit: 1 })) return;
+  await c.users
+    .insertOne({
+      _id: new ObjectId(), name: "Riya", email: ADMIN_EMAIL, passwordHash: hashPassword(ADMIN_PASSWORD), role: "admin", status: "active",
+      country: "", avatarUrl: "", favorites: [], emailVerified: true, createdAt: new Date(),
+    })
+    .catch(() => {}); // another server process created it at the same moment (unique e-mail)
+}
+
 export async function seed(c: Collections) {
   const demoHash = hashPassword(DEMO_PASSWORD);
   const now = new Date();
@@ -272,7 +286,7 @@ export async function seed(c: Collections) {
     _id: new ObjectId(), name, email, passwordHash, role, status: "active" as const, country, avatarUrl: "", favorites: [] as ObjectId[], createdAt: now,
   });
 
-  const admin = user("Équipe Riya", ADMIN_EMAIL, "admin", "Sénégal", hashPassword(ADMIN_PASSWORD));
+  const admin = user("Riya", ADMIN_EMAIL, "admin", "Sénégal", hashPassword(ADMIN_PASSWORD));
   const tutors = TUTORS.map((t) => ({
     ...user(t.name, t.email, "tutor", t.country),
     tutor: {

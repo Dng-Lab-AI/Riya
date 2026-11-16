@@ -22,7 +22,7 @@ Ouvrez http://localhost:3000. Au premier accès, la base `riya` est remplie avec
 
 | Compte | E-mail | Mot de passe |
 |---|---|---|
-| Administrateur | `admin@riya.africa` | `admin1234` |
+| Administrateur (site admin) | `riya@gmail.com` | `riya1234` |
 | Élève | `camille@exemple.fr` | `riya1234` |
 | Tutrice (swahili) | `amani@riya.africa` | `riya1234` |
 | Tutrice (wolof) | `fatou@riya.africa` | `riya1234` |
@@ -31,9 +31,11 @@ Pour repartir de zéro : `npm run db:reset`, puis redémarrez `npm run dev`.
 
 ## Site d'administration
 
-L'administration est un site à part, sur le sous-domaine `admin.` : **http://admin.localhost:3000** en développement, `https://admin.votre-domaine` en production. Elle a sa propre page de connexion, réservée aux comptes administrateurs (compte de démo : `admin@riya.africa` / `admin1234`).
+L'administration est un site à part, sur le sous-domaine `admin.` : **http://admin.localhost:3000** en développement, `https://admin.votre-domaine` en production. Elle a sa propre page de connexion, réservée aux comptes administrateurs.
 
-Pour créer un compte administrateur (ou donner ce rôle à un compte existant) dans la base de `MONGODB_URI` :
+Le compte administrateur par défaut est **`riya@gmail.com`** / **`riya1234`** : il est créé au démarrage du serveur s'il n'existe pas encore (y compris sur une base existante), et n'est jamais modifié ensuite. Changez son mot de passe dans **Équipe** dès la première connexion (ou choisissez d'autres valeurs avec `DEFAULT_ADMIN_EMAIL` et `DEFAULT_ADMIN_PASSWORD`). Depuis **Équipe**, un administrateur ajoute d'autres administrateurs (nouveau compte, ou membre existant) et retire leurs droits.
+
+En dehors du site, pour créer un compte administrateur (ou donner ce rôle à un compte existant) dans la base de `MONGODB_URI` :
 
 ```bash
 npm run admin:create -- vous@exemple.com "Votre nom"
