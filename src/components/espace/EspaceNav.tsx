@@ -51,6 +51,8 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
               { href: "/progression", label: t.progressStudent, icon: TrendingUp },
             ],
     },
+    // Tutors can also learn with another tutor.
+    ...(role === "tutor" ? [{ title: t.learning, items: [{ href: "/mes-tuteurs", label: t.tutors, icon: Heart }] }] : []),
     {
       title: t.profile,
       items: [

@@ -19,6 +19,7 @@ export const KIND_STYLES: Record<LessonKind, { swatch: string; box: string }> = 
   first: { swatch: "bg-forest-600", box: "border-forest-600 bg-forest-100 text-forest-900" },
   single: { swatch: "bg-sky-600", box: "border-sky-600 bg-sky-100 text-sky-950" },
   weekly: { swatch: "bg-clay-600", box: "border-clay-600 bg-clay-100 text-clay-800" },
+  learning: { swatch: "bg-earth-500", box: "border-earth-500 bg-sand-100 text-earth-800" },
 };
 const TIME_OFF_STYLE = "border-ochre-500 bg-ochre-100 text-ochre-800";
 const STRIPES = "repeating-linear-gradient(135deg, rgb(237 179 58 / 0.25) 0 6px, transparent 6px 12px)";
@@ -34,7 +35,7 @@ const M = defineMessages<{
   timeOffText: string; extraText: string; timeOffDeleted: string; slotDeleted: string; delete: string;
 }>({
   en: {
-    kinds: { first: "First lesson", single: "One-off lesson", weekly: "Weekly lesson" }, awaitingStudent: "Waiting for the student",
+    kinds: { first: "First lesson", single: "One-off lesson", weekly: "Weekly lesson", learning: "Lesson you take" }, awaitingStudent: "Waiting for the student",
     toConfirm: "To confirm", completed: "Completed", confirmed: "Confirmed", schedule: "Schedule a lesson", addTimeOff: "Add time off",
     extraSlots: "Extra slots", myAvailability: "My availability", previous: "Previous week", next: "Next week", today: "Today", display: "View",
     week: "Week", agenda: "Agenda", scheduleTitle: "Schedule a lesson", timeOffTitle: "Add time off", extraTitle: "Add extra slots",
@@ -50,7 +51,7 @@ const M = defineMessages<{
     timeOffDeleted: "Time off deleted.", slotDeleted: "Slot deleted.", delete: "Delete",
   },
   fr: {
-    kinds: { first: "Premier cours", single: "Cours ponctuel", weekly: "Cours hebdomadaire" }, awaitingStudent: "En attente de l'élève",
+    kinds: { first: "Premier cours", single: "Cours ponctuel", weekly: "Cours hebdomadaire", learning: "Cours que vous suivez" }, awaitingStudent: "En attente de l'élève",
     toConfirm: "À confirmer", completed: "Terminé", confirmed: "Confirmé", schedule: "Planifier un cours", addTimeOff: "Ajouter une absence",
     extraSlots: "Créneaux supplémentaires", myAvailability: "Mes disponibilités", previous: "Semaine précédente", next: "Semaine suivante", today: "Aujourd'hui", display: "Affichage",
     week: "Semaine", agenda: "Agenda", scheduleTitle: "Planifier un cours", timeOffTitle: "Ajouter une absence", extraTitle: "Ajouter des créneaux supplémentaires",
@@ -118,6 +119,7 @@ function place(start: number, end: number, day: Date) {
 function statusLabel(l: CalendarLesson, t: Texts) {
   if (l.awaiting_student) return t.awaitingStudent;
   if (l.awaiting_tutor) return t.toConfirm;
+  if (l.status === "pending") return t.pending;
   return l.status === "completed" ? t.completed : t.confirmed;
 }
 
@@ -460,7 +462,8 @@ function LessonDetails({ lesson, now, onClose, onDone }: { lesson: CalendarLesso
             <form action={run("decline", t.declined)}><button className="btn-outline">{t.decline}</button></form>
           </>
         )}
-        {upcoming && (lesson.awaiting_student || lesson.status === "confirmed") && (
+        {/* A lesson the tutor takes is cancelled from their lessons page, as a student. */}
+        {upcoming && lesson.kind !== "learning" && (lesson.awaiting_student || lesson.status === "confirmed") && (
           <form
             action={run("cancel", lesson.awaiting_student ? t.proposalCancelled : t.lessonCancelled)}
             onSubmit={(e) => { if (!window.confirm(lesson.awaiting_student ? t.confirmCancelProposal : t.confirmCancelLesson)) e.preventDefault(); }}

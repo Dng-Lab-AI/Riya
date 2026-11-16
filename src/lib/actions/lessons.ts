@@ -19,7 +19,7 @@ const M = defineMessages({
     notFound: "Tutor not found.", yourself: "You can't book a lesson with yourself.", when: "Choose a date and a time.",
     notice: "Book at least one hour in advance.", country: "Enter the country you're paying from.",
     noPayment: "Online payment isn't available yet. Please try again later.", language: "This tutor doesn't teach this language.",
-    taken: "This slot is no longer available. Choose another one.", failed: "The payment couldn't start. Please try again in a moment.",
+    taken: "This slot is no longer available. Choose another one.", busy: "You already have a lesson at that time. Choose another slot.", failed: "The payment couldn't start. Please try again in a moment.",
     rating: "Choose a rating from 1 to 5.", completedOnly: "You can only review your completed lessons.", already: "You've already reviewed this lesson.",
     thanks: "Thank you for your review!", description: (name: string) => `Lesson with ${name}`,
   },
@@ -27,7 +27,7 @@ const M = defineMessages({
     notFound: "Tuteur introuvable.", yourself: "Vous ne pouvez pas réserver un cours avec vous-même.", when: "Choisissez une date et une heure.",
     notice: "Réservez au moins une heure à l'avance.", country: "Indiquez le pays depuis lequel vous payez.",
     noPayment: "Le paiement en ligne n'est pas encore disponible. Réessayez plus tard.", language: "Ce tuteur n'enseigne pas cette langue.",
-    taken: "Ce créneau n'est plus disponible. Choisissez-en un autre.", failed: "Le paiement n'a pas pu démarrer. Réessayez dans un instant.",
+    taken: "Ce créneau n'est plus disponible. Choisissez-en un autre.", busy: "Vous avez déjà un cours à cette heure-là. Choisissez un autre créneau.", failed: "Le paiement n'a pas pu démarrer. Réessayez dans un instant.",
     rating: "Choisissez une note de 1 à 5.", completedOnly: "Vous ne pouvez évaluer que vos cours terminés.", already: "Vous avez déjà évalué ce cours.",
     thanks: "Merci pour votre avis !", description: (name: string) => `Cours avec ${name}`,
   },
@@ -56,6 +56,9 @@ export async function bookLesson(tutorId: string, _prev: FormState, formData: Fo
 
   // The slot must be within the tutor's availability and not overlap another lesson.
   if (!(await isSlotBookable(tutor, startsAt))) return { error: t.taken };
+  // The one booking may be a tutor too, with their own lessons to give at that time.
+  const slot: [number, number] = [startsAt.getTime(), startsAt.getTime() + 50 * 60 * 1000];
+  if ((await busyIntervals({ studentId: user._id }, startsAt, new Date(slot[1]))).some((b) => overlaps(slot, b))) return { error: t.busy };
 
   const lesson: LessonDoc = {
     _id: new ObjectId(), studentId: user._id, tutorId: tutorOid, languageSlug, startsAt, durationMinutes: 50,
@@ -199,13 +202,13 @@ export async function leaveReview(lessonId: string, _prev: FormState, formData: 
 export async function toggleFavorite(tutorId: string) {
   const user = await requireUser(`/tuteurs/${tutorId}`);
   const _id = toObjectId(tutorId);
-  if (!_id) return;
+  if (!_id || _id.equals(user._id)) return;
   const db = await getDb();
   const removed = await db.users.updateOne({ _id: user._id, favorites: _id }, { $pull: { favorites: _id } });
   if (!removed.modifiedCount && (await db.users.countDocuments({ _id, role: "tutor" }))) {
     await db.users.updateOne({ _id: user._id }, { $addToSet: { favorites: _id } });
     // Liking a profile tells the tutor this student is interested (at most once a month).
-    if (user.role === "student") await notifyInterest(user, _id);
+    if (user.role !== "admin") await notifyInterest(user, _id);
   }
   refreshAll();
 }

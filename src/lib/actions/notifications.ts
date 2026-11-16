@@ -26,7 +26,8 @@ export async function expressInterest(tutorId: string): Promise<FormState> {
   const t = M[await getLocale()];
   const _id = toObjectId(tutorId);
   if (!_id || _id.equals(user._id)) return { error: t.notFound };
-  if (user.role !== "student") return { error: t.studentsOnly };
+  // Students, and tutors looking for a tutor of their own (not the team).
+  if (user.role === "admin") return { error: t.studentsOnly };
 
   const db = await getDb();
   if (!(await db.users.countDocuments({ _id, role: "tutor", status: "active" }))) return { error: t.notFound };

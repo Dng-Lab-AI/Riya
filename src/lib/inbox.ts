@@ -39,19 +39,18 @@ export async function getInbox(userId: ObjectId): Promise<InboxItem[]> {
   }));
 }
 
-// People the viewer can start a conversation with: a student's tutors (booked or favourite),
-// a tutor's students.
+// People the viewer can start a conversation with: their tutors (booked or favourite) and,
+// for a tutor, their students. A tutor can be both: they may also take lessons with another tutor.
 export async function getMessageContacts(userId: ObjectId, role: Role): Promise<Contact[]> {
   const db = await getDb();
-  let ids: ObjectId[];
-  if (role === "tutor") {
-    ids = (await db.lessons.distinct("studentId", { tutorId: userId })) as ObjectId[];
-  } else {
-    const [booked, me] = await Promise.all([db.lessons.distinct("tutorId", { studentId: userId }), db.users.findOne({ _id: userId }, { projection: { favorites: 1 } })]);
-    ids = [...(booked as ObjectId[]), ...(me?.favorites ?? [])];
-  }
+  const [students, booked, me] = await Promise.all([
+    role === "tutor" ? db.lessons.distinct("studentId", { tutorId: userId }) : [],
+    db.lessons.distinct("tutorId", { studentId: userId }),
+    db.users.findOne({ _id: userId }, { projection: { favorites: 1 } }),
+  ]);
+  const ids = [...(students as ObjectId[]), ...(booked as ObjectId[]), ...(me?.favorites ?? [])];
   const people = await db.users
-    .find({ _id: { $in: ids }, status: "active", role: role === "tutor" ? "student" : "tutor" }, { projection: { name: 1, avatarUrl: 1, role: 1 } })
+    .find({ _id: { $in: ids, $ne: userId }, status: "active", role: { $in: ["student", "tutor"] } }, { projection: { name: 1, avatarUrl: 1, role: 1 } })
     .toArray();
   return people.map((u) => ({ id: u._id.toHexString(), name: u.name, avatar_url: u.avatarUrl, role: u.role })).sort((a, b) => a.name.localeCompare(b.name));
 }
