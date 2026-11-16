@@ -6,7 +6,7 @@ import { sendActionEmail } from "./mail";
 import { publicOrigin } from "./site";
 
 // E-mails about lessons: a new request (to the tutor), a proposal (to the student), a confirmation,
-// a reminder the day before (to both) and a cancellation (to both). Each one is sent once per lesson
+// a reminder within the 24 hours before (to both) and a cancellation (to both). Each one is sent once per lesson
 // (lesson.mails), and only for lessons created since this was switched on, so nobody gets old news.
 
 const REMINDER_BEFORE_MS = 24 * 60 * 60 * 1000;
@@ -24,7 +24,7 @@ const M = defineMessages({
     confirmedSubject: (name: string) => `Lesson confirmed with ${name}`,
     confirmedIntro: (name: string, when: string) => `Your lesson with ${name} on ${when} is confirmed. The classroom opens a few minutes before the start.`,
     confirmedButton: "See my lessons",
-    reminderSubject: (name: string) => `Reminder: lesson with ${name} tomorrow`,
+    reminderSubject: (name: string) => `Reminder: your lesson with ${name}`,
     reminderIntro: (name: string, when: string) => `Your lesson with ${name} is on ${when}. Check your camera and microphone a few minutes before, then join from Riya.`,
     reminderButton: "Open the classroom",
     cancelledSubject: (name: string) => `Lesson with ${name} cancelled`,
@@ -44,7 +44,7 @@ const M = defineMessages({
     confirmedSubject: (name: string) => `Cours confirmé avec ${name}`,
     confirmedIntro: (name: string, when: string) => `Votre cours avec ${name} le ${when} est confirmé. La salle de classe ouvre quelques minutes avant le début.`,
     confirmedButton: "Voir mes cours",
-    reminderSubject: (name: string) => `Rappel : cours avec ${name} demain`,
+    reminderSubject: (name: string) => `Rappel : votre cours avec ${name}`,
     reminderIntro: (name: string, when: string) => `Votre cours avec ${name} a lieu le ${when}. Vérifiez votre caméra et votre micro quelques minutes avant, puis rejoignez-le depuis Riya.`,
     reminderButton: "Ouvrir la salle de classe",
     cancelledSubject: (name: string) => `Cours avec ${name} annulé`,
