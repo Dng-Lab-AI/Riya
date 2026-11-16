@@ -3,11 +3,12 @@
 import { redirect } from "next/navigation";
 import { defineMessages, type Locale } from "@/i18n";
 import { getLocale } from "@/i18n/server";
-import { createSession, destroySession } from "../auth";
+import { createSession, destroySession, isActive } from "../auth";
 import { consumeToken, issueToken, sentRecently } from "../auth-tokens";
 import { getDb, ObjectId, type UserDoc } from "../db";
 import { sendActionEmail } from "../mail";
 import { isKnownCountry } from "../payments/countries";
+import { moderationMessage } from "../moderation";
 import { hashPassword, verifyPassword } from "../password";
 import { siteOrigin } from "../site";
 import { emptyTutorProfile } from "../tutor-profile";
@@ -123,7 +124,8 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
 }
 
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
-  const t = M[await getLocale()];
+  const locale = await getLocale();
+  const t = M[locale];
   const email = text(formData, "email", 120).toLowerCase();
   const password = String(formData.get("password") ?? "");
 
@@ -134,9 +136,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return { error: t.wrong };
   }
-  if (user.status !== "active") {
-    return { error: t.suspended };
-  }
+  if (!(await isActive(user))) return { error: moderationMessage(user, locale) };
   if (user.emailVerified === false) {
     redirect(`/verifier-email?email=${encodeURIComponent(email)}&bloque=1`);
   }

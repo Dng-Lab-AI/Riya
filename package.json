@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:reset": "node scripts/reset-db.mjs",
-    "db:local": "node scripts/mongo-local.mjs"
+    "db:local": "node scripts/mongo-local.mjs",
+    "admin:create": "node scripts/create-admin.mjs"
   },
   "dependencies": {
     "framer-motion": "^13.2.0",

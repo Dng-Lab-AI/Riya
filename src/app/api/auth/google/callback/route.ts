@@ -1,7 +1,7 @@
 import { getLocale } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createSession } from "@/lib/auth";
+import { createSession, isActive } from "@/lib/auth";
 import { getDb, ObjectId, type UserDoc } from "@/lib/db";
 import { GOOGLE_COOKIE, fetchGoogleProfile, type GoogleState } from "@/lib/google";
 import { siteOrigin } from "@/lib/site";
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     user = doc;
     created = true;
   }
-  if (user.status !== "active") redirect("/connexion?erreur=suspendu");
+  if (!(await isActive(user))) redirect("/connexion?erreur=suspendu");
 
   await createSession(user._id);
   // New accounts first pick their country (payment methods) or fill in their tutor profile.

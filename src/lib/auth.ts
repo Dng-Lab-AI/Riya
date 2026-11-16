@@ -3,10 +3,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getDb, type ObjectId, type Role } from "./db";
+import { getDb, type ObjectId, type Role, type UserDoc } from "./db";
+import { adminOrigin } from "./site";
 
 const COOKIE_NAME = "riya_session";
 const SESSION_DAYS = 30;
+// "Last seen" on the admin site: written at most this often per member.
+const LAST_SEEN_EVERY_MS = 5 * 60 * 1000;
 
 export type { Role };
 
@@ -54,8 +57,11 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const db = await getDb();
   const session = await db.sessions.findOne({ _id: hashToken(token), expiresAt: { $gt: new Date() } });
   if (!session) return null;
-  const user = await db.users.findOne({ _id: session.userId, status: "active" });
-  if (!user) return null;
+  const user = await db.users.findOne({ _id: session.userId });
+  if (!user || !(await isActive(user))) return null;
+  if (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > LAST_SEEN_EVERY_MS) {
+    await db.users.updateOne({ _id: user._id }, { $set: { lastSeenAt: new Date() } });
+  }
   return {
     id: user._id.toHexString(),
     _id: user._id,
@@ -67,9 +73,27 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   };
 });
 
+// Active, or suspended until a date that has passed (the suspension then ends by itself).
+export async function isActive(user: Pick<UserDoc, "_id" | "status" | "suspendedUntil">) {
+  if (user.status === "active") return true;
+  if (user.status === "suspended" && user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()) {
+    await (await getDb()).users.updateOne({ _id: user._id, status: "suspended" }, { $set: { status: "active" }, $unset: { suspendedUntil: "", moderation: "" } });
+    return true;
+  }
+  return false;
+}
+
 export async function requireUser(redirectTo = "/"): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect(`/connexion?suite=${encodeURIComponent(redirectTo)}`);
+  return user;
+}
+
+// The admin site (admin.<domain>) has its own login page, at /connexion on that host (full address:
+// from a server action, a relative redirect would be rendered without the proxy).
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") redirect(`${await adminOrigin()}/connexion`);
   return user;
 }
 
