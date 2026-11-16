@@ -1,7 +1,10 @@
 // Time zone arithmetic with the built-in Intl API (no dependency), usable on the server and in the browser.
 // Weekdays are numbered from Monday (0) to Sunday (6), like the tutor's weekly schedule.
 
-export const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"] as const;
+export const WEEKDAYS: Record<"en" | "fr", readonly string[]> = {
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  fr: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+};
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
