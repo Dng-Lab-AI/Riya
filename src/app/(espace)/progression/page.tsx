@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Info } from "lucide-react";
 import { AreaChart, BarList, ColumnChart, DomainMeters } from "@/components/charts";
 import { EmptyState, EspaceHeader } from "@/components/ui";
@@ -58,8 +57,7 @@ const M = defineMessages({
 });
 
 export async function generateMetadata() {
-  const user = await requireUser("/progression");
-  return user.role === "tutor" ? titled({ en: M.en.myActivity, fr: M.fr.myActivity }) : titled({ en: M.en.myProgress, fr: M.fr.myProgress });
+  return titled({ en: M.en.myProgress, fr: M.fr.myProgress });
 }
 
 function Stat({ label, value, caption, dark = false }: { label: string; value: string | number; caption?: string; dark?: boolean }) {
@@ -85,8 +83,7 @@ function Card({ title, subtitle, children, className = "" }: { title: string; su
 export default async function ProgressPage() {
   const user = await requireUser("/progression");
   const locale = await getLocale();
-  // Tutors follow their activity on the Insights page.
-  if (user.role === "tutor") redirect("/statistiques");
+  // Tutors follow their teaching on the Insights page; here, like students, the lessons they take with other tutors.
   return <StudentProgressView studentId={user._id} firstName={user.name.split(" ")[0]} locale={locale} />;
 }
 

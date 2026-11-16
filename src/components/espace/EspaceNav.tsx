@@ -52,7 +52,10 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
             ],
     },
     // Tutors can also learn with another tutor.
-    ...(role === "tutor" ? [{ title: t.learning, items: [{ href: "/mes-tuteurs", label: t.tutors, icon: Heart }] }] : []),
+    ...(role === "tutor" ? [{ title: t.learning, items: [
+          { href: "/mes-tuteurs", label: t.tutors, icon: Heart },
+          { href: "/progression", label: t.progressStudent, icon: TrendingUp },
+        ] }] : []),
     {
       title: t.profile,
       items: [
