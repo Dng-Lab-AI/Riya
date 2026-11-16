@@ -72,52 +72,45 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/classe/[
   const isTutor = lesson.tutorId.equals(user._id);
 
   const now = new Date();
-  if (open) {
-    // The first visit is kept: it tells whether each participant came to the lesson.
-    const first = lesson.joinedAt?.[user.id] ? {} : { [`joinedAt.${user.id}`]: now };
-    await db.lessons.updateOne({ _id: lesson._id }, { $set: { [`presence.${user.id}`]: now, ...first } });
-  }
-
   const param = (name: string) => toObjectId(request.nextUrl.searchParams.get(name));
   const signalAfter = param("signals");
   const chatAfter = param("chat");
   const eventsAfter = param("events");
   const transcriptAfter = param("transcript");
 
-  // First call: start the signal stream "now" so stale offers from a previous visit are ignored.
-  const signals = open && signalAfter
-    ? await db.signals.find({ lessonId: lesson._id, to: user._id, _id: { $gt: signalAfter } }).sort({ _id: 1 }).limit(200).toArray()
-    : [];
-  const chat = await db.classChat
-    .find({ lessonId: lesson._id, ...(chatAfter ? { _id: { $gt: chatAfter } } : {}) })
-    .sort({ _id: 1 })
-    .limit(200)
-    .toArray();
-
   // On the first call, replay the whiteboard since its last clear; afterwards, only new events.
-  let events;
-  let eventsCursor: ObjectId;
-  if (eventsAfter) {
-    events = await db.events.find({ lessonId: lesson._id, _id: { $gt: eventsAfter } }).sort({ _id: 1 }).limit(500).toArray();
-    eventsCursor = events.at(-1)?._id ?? eventsAfter;
-  } else {
-    const lastClear = await db.events.find({ lessonId: lesson._id, type: "clear" }).sort({ _id: -1 }).limit(1).next();
-    events = await db.events
+  const loadEvents = async () => {
+    if (eventsAfter) {
+      const events = await db.events.find({ lessonId: lesson._id, _id: { $gt: eventsAfter } }).sort({ _id: 1 }).limit(500).toArray();
+      return { events, eventsCursor: events.at(-1)?._id ?? eventsAfter };
+    }
+    const [lastClear, latest] = await Promise.all([
+      db.events.find({ lessonId: lesson._id, type: "clear" }).sort({ _id: -1 }).limit(1).next(),
+      // Continue after the newest event of any kind, so old reactions are not replayed.
+      db.events.find({ lessonId: lesson._id }).sort({ _id: -1 }).limit(1).next(),
+    ]);
+    const events = await db.events
       .find({ lessonId: lesson._id, type: "stroke", ...(lastClear ? { _id: { $gt: lastClear._id } } : {}) })
       .sort({ _id: 1 })
       .limit(5000)
       .toArray();
-    // Continue after the newest event of any kind, so old reactions are not replayed.
-    const latest = await db.events.find({ lessonId: lesson._id }).sort({ _id: -1 }).limit(1).next();
-    eventsCursor = latest?._id ?? new ObjectId();
-  }
+    return { events, eventsCursor: latest?._id ?? new ObjectId() };
+  };
 
-  const transcript = transcriptAfter
-    ? await db.transcript.find({ lessonId: lesson._id, _id: { $gt: transcriptAfter } }).sort({ _id: 1 }).limit(100).toArray()
-    : [];
+  // This runs about once a second for each participant: the queries go out together, not one after another
+  // (each one is a round trip to the database, which made the classroom slow to connect).
+  const [, signals, chat, { events, eventsCursor }, transcript, documents] = await Promise.all([
+    // Presence; the first visit is kept: it tells whether each participant came to the lesson.
+    open ? db.lessons.updateOne({ _id: lesson._id }, { $set: { [`presence.${user.id}`]: now, ...(lesson.joinedAt?.[user.id] ? {} : { [`joinedAt.${user.id}`]: now }) } }) : null,
+    // First call: start the signal stream "now" so stale offers from a previous visit are ignored.
+    open && signalAfter ? db.signals.find({ lessonId: lesson._id, to: user._id, _id: { $gt: signalAfter } }).sort({ _id: 1 }).limit(200).toArray() : [],
+    db.classChat.find({ lessonId: lesson._id, ...(chatAfter ? { _id: { $gt: chatAfter } } : {}) }).sort({ _id: 1 }).limit(200).toArray(),
+    loadEvents(),
+    transcriptAfter ? db.transcript.find({ lessonId: lesson._id, _id: { $gt: transcriptAfter } }).sort({ _id: 1 }).limit(100).toArray() : [],
+    listLessonFiles(lesson._id),
+  ]);
 
   const lastSeen = lesson.presence?.[otherId.toHexString()];
-  const documents = await listLessonFiles(lesson._id);
   const assistant = lesson.assistant ?? { enabled: false, consent: {} };
 
   return Response.json({
