@@ -16,6 +16,7 @@ import { getTutor, getTutorBookableSlots, getTutorReviews, isFavorite } from "@/
 import { hasShownInterest } from "@/lib/notifications";
 import { toObjectId } from "@/lib/db";
 import { InterestButton } from "@/components/InterestButton";
+import { ProfileViewTracker } from "@/components/ProfileViewTracker";
 
 const M = defineMessages({
   en: {
@@ -74,6 +75,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
 
   return (
     <div className="pattern-bogolan">
+      {!isSelf && tutor.approved && <ProfileViewTracker tutorId={tutor.id} />}
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_400px] lg:px-8">
         <div className="space-y-6">
           {!tutor.approved && (

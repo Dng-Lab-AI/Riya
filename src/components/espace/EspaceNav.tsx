@@ -10,13 +10,13 @@ import { logout } from "@/lib/actions/auth";
 const M = defineMessages({
   en: {
     teaching: "My teaching", learning: "My learning", home: "Home", messages: "Messages", calendar: "Calendar", lessons: "My lessons", students: "My students",
-    demo: "Demo classroom", progressTutor: "My progress", tutors: "My tutors", progressStudent: "My progress", profile: "My profile",
+    demo: "Demo classroom", progressTutor: "Insights", tutors: "My tutors", progressStudent: "My progress", profile: "My profile",
     personal: "Personal information", tutorProfile: "Tutor profile", earnings: "Earnings", payments: "Payments", security: "Security", team: "Team",
     admin: "Admin", space: "My space", publicProfile: "View my public profile", logout: "Log out",
   },
   fr: {
     teaching: "Mon enseignement", learning: "Mon apprentissage", home: "Accueil", messages: "Messages", calendar: "Calendrier", lessons: "Mes cours", students: "Mes élèves",
-    demo: "Salle de démo", progressTutor: "Mon évolution", tutors: "Mes tuteurs", progressStudent: "Ma progression", profile: "Mon profil",
+    demo: "Salle de démo", progressTutor: "Statistiques", tutors: "Mes tuteurs", progressStudent: "Ma progression", profile: "Mon profil",
     personal: "Informations personnelles", tutorProfile: "Profil de tuteur", earnings: "Revenus", payments: "Paiements", security: "Sécurité", team: "Équipe",
     admin: "Administration", space: "Mon espace", publicProfile: "Voir mon profil public", logout: "Se déconnecter",
   },
@@ -42,7 +42,7 @@ export function EspaceNav({ role, userId, unread }: { role: string; userId: stri
               { href: "/tableau-de-bord", label: t.lessons, icon: CalendarDays },
               { href: "/eleves", label: t.students, icon: UsersRound },
               { href: "/salle-de-demo", label: t.demo, icon: MonitorPlay },
-              { href: "/progression", label: t.progressTutor, icon: TrendingUp },
+              { href: "/statistiques", label: t.progressTutor, icon: TrendingUp },
             ]
           : [
               { href: "/tableau-de-bord", label: t.lessons, icon: CalendarDays },
