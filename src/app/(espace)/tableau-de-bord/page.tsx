@@ -33,6 +33,7 @@ const M = defineMessages<{
   requests: string; noRequests: string; proposals: string; nextLessons: string; noUpcoming: string; toClose: string; history: string;
   noHistory: string; studentLead: string; booked: string; slotLost: string; admin: string; openAdmin: string; upcoming: string; noneTitle: string;
   findTutor: string; cancellation: (hours: number) => string; favorites: string; allTutors: string; past: string; noPast: string;
+  learning: string; learningPast: string;
 }>({
   en: {
     payment: { paid: "Paid", pending: "Payment pending", failed: "Payment failed", refunded: "Refunded", refund_failed: "Refund in progress" },
@@ -56,6 +57,7 @@ const M = defineMessages<{
     admin: "You're an administrator.", openAdmin: "Open the administration", upcoming: "Upcoming lessons", noneTitle: "No lessons planned",
     findTutor: "Find a tutor", cancellation: (h) => `Free cancellation up to ${h} hours before the lesson. Full refund if the tutor declines or cancels.`,
     favorites: "My favourite tutors", allTutors: "All my tutors", past: "Past lessons", noPast: "No past lessons yet",
+    learning: "Lessons you take with other tutors", learningPast: "Lessons you took",
   },
   fr: {
     payment: { paid: "Payé", pending: "Paiement en attente", failed: "Paiement non abouti", refunded: "Remboursé", refund_failed: "Remboursement en cours" },
@@ -79,6 +81,7 @@ const M = defineMessages<{
     admin: "Vous êtes administrateur.", openAdmin: "Ouvrir l'administration", upcoming: "Cours à venir", noneTitle: "Aucun cours prévu",
     findTutor: "Trouver un tuteur", cancellation: (h) => `Annulation gratuite jusqu'à ${h} h avant le cours. Remboursement complet si le tuteur refuse ou annule.`,
     favorites: "Mes tuteurs favoris", allTutors: "Tous mes tuteurs", past: "Cours passés", noPast: "Pas encore de cours passé",
+    learning: "Cours que vous suivez avec d’autres tuteurs", learningPast: "Cours suivis",
   },
 });
 
@@ -230,7 +233,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
   const list = { t, locale };
 
   if (user.role === "tutor") {
-    const [lessons, profile, feedback] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getTutorFeedbackOverview(user._id)]);
+    const [lessons, profile, feedback, learnerLessons] = await Promise.all([getTutorLessons(user._id), getTutor(user.id), getTutorFeedbackOverview(user._id), getStudentLessons(user._id)]);
+    // A tutor can also book lessons with another tutor: those show here, on the student side.
+    const learnerUpcoming = learnerLessons.filter(isUpcoming).sort(byDateAsc);
+    const learnerPast = learnerLessons.filter((l) => !isUpcoming(l));
     const requests = lessons.filter((l) => l.status === "pending" && !l.proposed_by_tutor && isUpcoming(l)).sort(byDateAsc);
     const proposals = lessons.filter((l) => l.status === "pending" && l.proposed_by_tutor && isUpcoming(l)).sort(byDateAsc);
     const upcoming = lessons.filter((l) => l.status === "confirmed" && isUpcoming(l)).sort(byDateAsc);
@@ -249,6 +255,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
         </EspaceHeader>
         <div className="space-y-10">
           {noticeBanner}
+          {justBooked && <p className="rounded-2xl bg-forest-100 p-5 font-medium text-forest-800">{t.booked}</p>}
+          {slotLost && <p className="rounded-2xl bg-clay-50 p-5 font-medium text-clay-800">{t.slotLost}</p>}
           {profile && (!profile.approved || !profile.headline) && (
             <div className="rounded-2xl bg-ochre-100 p-5 text-ochre-800">
               <p className="font-semibold">{profile.headline ? t.pendingProfile : t.incompleteProfile}</p>
@@ -267,6 +275,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
           <LessonList title={t.nextLessons} lessons={upcoming} as="tutor" empty={<EmptyState title={t.noUpcoming} />} {...list} />
           {toClose.length > 0 && <LessonList title={t.toClose} lessons={toClose} as="tutor" empty={null} {...list} />}
           <LessonList title={t.history} lessons={history} as="tutor" empty={<EmptyState title={t.noHistory} />} {...list} />
+          {learnerLessons.length > 0 && (
+            <>
+              <hr className="border-sand-200" />
+              <LessonList id="cours-a-venir" title={t.learning} lessons={learnerUpcoming} as="student" empty={<EmptyState title={t.noneTitle}><Link href="/tuteurs" className="btn-primary mt-3">{t.findTutor}</Link></EmptyState>} {...list} />
+              {learnerPast.length > 0 && <LessonList id="cours-passes" title={t.learningPast} lessons={learnerPast} as="student" empty={null} {...list} />}
+            </>
+          )}
         </div>
       </>
     );

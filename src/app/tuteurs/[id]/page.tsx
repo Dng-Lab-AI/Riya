@@ -71,7 +71,7 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
   const localPrice = quoteLesson(payCountry, tutor.hourly_rate);
   const [reviews, favorite, slots] = await Promise.all([getTutorReviews(tutor.id), user ? isFavorite(user._id, tutor.id) : false, getTutorBookableSlots(tutor.id)]);
   // Students can tell the tutor they are interested, so the tutor can reach out first.
-  const canShowInterest = user?.role === "student" && !isSelf && tutor.approved;
+  const canShowInterest = !!user && user.role !== "admin" && !isSelf && tutor.approved;
   const interested = canShowInterest ? await hasShownInterest(user._id, toObjectId(tutor.id)!) : false;
 
   return (

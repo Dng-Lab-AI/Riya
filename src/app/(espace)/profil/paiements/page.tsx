@@ -21,7 +21,7 @@ const STATUS_CLASSES: Record<PaymentRow["status"], string> = {
 const M = defineMessages<{
   status: Record<PaymentRow["status"], string>; title: string; lead: string; how: string; basedOn: (country: string) => string; notSet: string;
   personal: string; currency: string; refund: (hours: number) => string; history: string; lesson: string; date: string;
-  method: string; amount: string; statusCol: string; with: string; noPayments: string; noPaymentsText: string; earnings: string;
+  method: string; amount: string; statusCol: string; with: string; noPayments: string; noPaymentsText: string; earnings: string; paidLessons: string; paidLessonsLead: string;
   earningsLead: (pct: number) => string; thisMonth: string; sinceStart: string; completed: string; perLesson: string; payouts: string;
   price: string; youReceive: string; noEarnings: string; noEarningsText: string;
 }>({
@@ -33,6 +33,7 @@ const M = defineMessages<{
     refund: (hours) => `Full refund if the tutor declines or cancels, or if you cancel more than ${hours} hours before the lesson.`,
     history: "History", lesson: "Lesson", date: "Date", method: "Method", amount: "Amount", statusCol: "Status", with: "with",
     noPayments: "No payments yet", noPaymentsText: "Lessons you pay for online will appear here.", earnings: "Earnings",
+    paidLessons: "Lessons you paid for", paidLessonsLead: "Lessons you booked with other tutors.",
     earningsLead: (pct) => `What you've earned from your completed lessons, after Riya's commission (${pct}%).`,
     thisMonth: "This month", sinceStart: "Since the start", completed: "Completed lessons", perLesson: "Breakdown by lesson",
     payouts: "Payouts to your mobile money or bank account are made by the Riya team.", price: "Price", youReceive: "You receive",
@@ -46,6 +47,7 @@ const M = defineMessages<{
     refund: (hours) => `Remboursement complet si le tuteur refuse ou annule, ou si vous annulez plus de ${hours} h avant le cours.`,
     history: "Historique", lesson: "Cours", date: "Date", method: "Moyen", amount: "Montant", statusCol: "Statut", with: "avec",
     noPayments: "Aucun paiement pour l'instant", noPaymentsText: "Vos cours réglés en ligne apparaîtront ici.", earnings: "Revenus",
+    paidLessons: "Cours que vous avez payés", paidLessonsLead: "Les cours que vous avez réservés avec d’autres tuteurs.",
     earningsLead: (pct) => `Ce que vous avez gagné sur vos cours terminés, après la commission de Riya (${pct} %).`,
     thisMonth: "Ce mois-ci", sinceStart: "Depuis le début", completed: "Cours terminés", perLesson: "Détail par cours",
     payouts: "Les versements sur votre compte mobile money ou bancaire sont faits par l'équipe Riya.", price: "Prix", youReceive: "Vous recevez",
@@ -89,38 +91,43 @@ export default async function PaymentsPage() {
         </Panel>
 
         <Panel title={t.history}>
-          {payments.length ? (
-            <div className="-mx-2 overflow-x-auto">
-              <table className="w-full min-w-[36rem] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wider text-earth-500">
-                  <tr><th className="px-2 py-2 font-semibold">{t.lesson}</th><th className="px-2 py-2 font-semibold">{t.date}</th><th className="px-2 py-2 font-semibold">{t.method}</th><th className="px-2 py-2 text-right font-semibold">{t.amount}</th><th className="px-2 py-2 font-semibold">{t.statusCol}</th></tr>
-                </thead>
-                <tbody className="divide-y divide-sand-200">
-                  {payments.map((p) => (
-                    <tr key={p.lesson_id}>
-                      <td className="px-2 py-3"><span className="font-semibold">{p.language_name}</span> <span className="text-earth-500">{t.with} {p.other_name}</span></td>
-                      <td className="px-2 py-3 text-earth-600"><LocalDateTime iso={p.starts_at} mode="date" /></td>
-                      <td className="px-2 py-3 text-earth-600">{p.method ? (METHODS[p.method as MethodId] ? methodText(p.method, METHODS[p.method as MethodId], locale).label : p.method) : "—"}</td>
-                      <td className="px-2 py-3 text-right font-semibold tabular-nums">{p.amount_label}</td>
-                      <td className="px-2 py-3"><span className={`chip ${STATUS_CLASSES[p.status]}`}>{t.status[p.status]}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState title={t.noPayments}>{t.noPaymentsText}</EmptyState>
-          )}
+          <PaymentHistory payments={payments} locale={locale} />
         </Panel>
       </div>
     </>
   );
 }
 
+// Lessons the member paid for (a tutor may also take lessons with another tutor).
+function PaymentHistory({ payments, locale }: { payments: Awaited<ReturnType<typeof getStudentPayments>>; locale: Locale }) {
+  const t = M[locale];
+  if (!payments.length) return <EmptyState title={t.noPayments}>{t.noPaymentsText}</EmptyState>;
+  return (
+    <div className="-mx-2 overflow-x-auto">
+      <table className="w-full min-w-[36rem] text-left text-sm">
+        <thead className="text-xs uppercase tracking-wider text-earth-500">
+          <tr><th className="px-2 py-2 font-semibold">{t.lesson}</th><th className="px-2 py-2 font-semibold">{t.date}</th><th className="px-2 py-2 font-semibold">{t.method}</th><th className="px-2 py-2 text-right font-semibold">{t.amount}</th><th className="px-2 py-2 font-semibold">{t.statusCol}</th></tr>
+        </thead>
+        <tbody className="divide-y divide-sand-200">
+          {payments.map((p) => (
+            <tr key={p.lesson_id}>
+              <td className="px-2 py-3"><span className="font-semibold">{p.language_name}</span> <span className="text-earth-500">{t.with} {p.other_name}</span></td>
+              <td className="px-2 py-3 text-earth-600"><LocalDateTime iso={p.starts_at} mode="date" /></td>
+              <td className="px-2 py-3 text-earth-600">{p.method ? (METHODS[p.method as MethodId] ? methodText(p.method, METHODS[p.method as MethodId], locale).label : p.method) : "—"}</td>
+              <td className="px-2 py-3 text-right font-semibold tabular-nums">{p.amount_label}</td>
+              <td className="px-2 py-3"><span className={`chip ${STATUS_CLASSES[p.status]}`}>{t.status[p.status]}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 async function TutorEarnings({ userId, locale }: { userId: Parameters<typeof getTutorEarnings>[0]; locale: Locale }) {
   const t = M[locale];
   const commission = commissionRate();
-  const rows = await getTutorEarnings(userId, commission);
+  const [rows, payments] = await Promise.all([getTutorEarnings(userId, commission), getStudentPayments(userId)]);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const total = rows.reduce((sum, r) => sum + r.net, 0);
   const thisMonth = rows.filter((r) => r.starts_at >= monthStart).reduce((sum, r) => sum + r.net, 0);
@@ -168,6 +175,12 @@ async function TutorEarnings({ userId, locale }: { userId: Parameters<typeof get
             <EmptyState title={t.noEarnings}>{t.noEarningsText}</EmptyState>
           )}
         </Panel>
+
+        {payments.length > 0 && (
+          <Panel title={t.paidLessons} description={t.paidLessonsLead}>
+            <PaymentHistory payments={payments} locale={locale} />
+          </Panel>
+        )}
       </div>
     </>
   );

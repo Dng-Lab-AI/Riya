@@ -94,11 +94,16 @@ export async function openIntervals(tutor: TutorLike, from: Date, to: Date): Pro
 
 export const lessonInterval = (l: Pick<LessonDoc, "startsAt" | "durationMinutes">): Interval => [l.startsAt.getTime(), l.startsAt.getTime() + l.durationMinutes * 60 * 1000];
 
-// Lessons of the tutor (or of the student) that keep that time busy.
+// Lessons of the member that keep that time busy (the key only says which member).
 export async function busyIntervals(who: { tutorId: ObjectId } | { studentId: ObjectId }, from: Date, to: Date, exceptId?: ObjectId): Promise<Interval[]> {
   const db = await getDb();
   // A lesson lasts a few hours at most, so one starting a little before `from` may still overlap it.
-  const filter: Filter<LessonDoc> = { ...who, startsAt: { $lt: to, $gt: new Date(from.getTime() - 4 * 60 * 60 * 1000) }, ...holdsSlot() };
+  // A member is busy whichever side of the lesson they are on: a tutor may also take lessons with another tutor.
+  const id = "tutorId" in who ? who.tutorId : who.studentId;
+  const filter: Filter<LessonDoc> = {
+    $and: [{ $or: [{ tutorId: id }, { studentId: id }] }, holdsSlot()],
+    startsAt: { $lt: to, $gt: new Date(from.getTime() - 4 * 60 * 60 * 1000) },
+  };
   if (exceptId) filter._id = { $ne: exceptId };
   const lessons = await db.lessons.find(filter, { projection: { startsAt: 1, durationMinutes: 1 } }).toArray();
   return lessons.map(lessonInterval);

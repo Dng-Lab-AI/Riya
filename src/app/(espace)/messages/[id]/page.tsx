@@ -9,6 +9,7 @@ import { countryName } from "@/i18n/catalog";
 import { getLocale, titled } from "@/i18n/server";
 import { toggleArchive } from "@/lib/actions/community";
 import { requireUser } from "@/lib/auth";
+import { tutorStudentIds } from "@/lib/calendar";
 import { getDb, toObjectId } from "@/lib/db";
 import { getPairSummary } from "@/lib/inbox";
 import { getThread, getUserProfile, markThreadRead } from "@/lib/queries";
@@ -39,12 +40,15 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
   if (!other || !otherId || other.id === user.id) notFound();
 
   await markThreadRead(user._id, otherId);
-  const [messages, summary, me, locale] = await Promise.all([
+  const [messages, summary, me, locale, students] = await Promise.all([
     getThread(user._id, otherId),
     getPairSummary(user._id, otherId),
     (await getDb()).users.findOne({ _id: user._id }, { projection: { archivedChats: 1 } }),
     getLocale(),
+    user.role === "tutor" ? tutorStudentIds(user._id) : [],
   ]);
+  // A tutor schedules lessons with their students, another tutor who books them included.
+  const canSchedule = students.some((s) => s.equals(otherId));
   const t = M[locale];
   const archived = !!me?.archivedChats?.some((a) => a.equals(otherId));
 
@@ -65,7 +69,7 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
         {other.role === "tutor" && (
           <Link href={`/tuteurs/${other.id}`} className="btn-ghost px-2" title={t.profile} aria-label={t.profile}><ExternalLink size={18} /></Link>
         )}
-        {user.role === "tutor" && other.role === "student" && (
+        {canSchedule && (
           <Link href={`/calendrier?eleve=${other.id}`} className="btn-ghost px-2" title={t.schedule} aria-label={t.schedule}><CalendarPlus size={18} /></Link>
         )}
         <form action={toggleArchive.bind(null, other.id)}>

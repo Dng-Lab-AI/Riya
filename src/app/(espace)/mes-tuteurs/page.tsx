@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { CalendarPlus, Heart, MessageCircle, Search } from "lucide-react";
 import { LocalDateTime } from "@/components/client";
 import { Avatar, EmptyState, EspaceHeader, Rating } from "@/components/ui";
@@ -43,7 +42,6 @@ function myTutors(lessons: Lesson[], tutors: TutorSummary[], favorites: Set<stri
 
 export default async function MyTutorsPage() {
   const user = await requireUser("/mes-tuteurs");
-  if (user.role === "tutor") redirect("/eleves");
 
   const [lessons, favorites, locale] = await Promise.all([getStudentLessons(user._id), getFavoriteTutors(user._id), getLocale()]);
   const t = M[locale];
