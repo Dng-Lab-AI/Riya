@@ -3,6 +3,23 @@
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, RotateCcw, Shuffle } from "lucide-react";
+import { defineMessages } from "@/i18n";
+import { useLocale } from "@/i18n/client";
+
+const M = defineMessages({
+  en: {
+    done: "Finished!", card: (n: number, total: number) => `Card ${n} / ${total}`, known: (n: number, total: number) => `${n} known out of ${total}`,
+    bravo: "Well done! 🎉", youKnow: (n: number, total: number) => `You know ${n} word${n > 1 ? "s" : ""} out of ${total}.`,
+    review: "Review the words to work on", shuffle: "Start again in random order", seeWord: "See the word", seeTranslation: "See the translation",
+    tap: "Tap to see the translation", again: "Review again", iKnow: "I know it",
+  },
+  fr: {
+    done: "Terminé !", card: (n: number, total: number) => `Carte ${n} / ${total}`, known: (n: number, total: number) => `${n} connue${n > 1 ? "s" : ""} sur ${total}`,
+    bravo: "Bravo ! 🎉", youKnow: (n: number, total: number) => `Vous connaissez ${n} mot${n > 1 ? "s" : ""} sur ${total}.`,
+    review: "Revoir les mots à retravailler", shuffle: "Recommencer dans le désordre", seeWord: "Voir le mot", seeTranslation: "Voir la traduction",
+    tap: "Touchez pour voir la traduction", again: "À revoir", iKnow: "Je sais",
+  },
+});
 
 // Small animation helpers. All of them respect the visitor's "reduce motion" setting: the
 // first render is identical on the server and in the browser, and animations then take no time.
@@ -45,6 +62,7 @@ export function Flashcards({ cards }: { cards: Flashcard[] }) {
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState<Set<number>>(new Set());
   const reduce = useReducedMotion();
+  const t = M[useLocale()];
 
   if (!cards.length) return null;
   const done = position >= order.length;
@@ -68,8 +86,8 @@ export function Flashcards({ cards }: { cards: Flashcard[] }) {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between text-sm text-earth-600">
-        <span>{done ? "Terminé !" : `Carte ${position + 1} / ${order.length}`}</span>
-        <span>{known.size} connue{known.size > 1 ? "s" : ""} sur {cards.length}</span>
+        <span>{done ? t.done : t.card(position + 1, order.length)}</span>
+        <span>{t.known(known.size, cards.length)}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-sand-200">
         <motion.div className="h-full bg-forest-500" animate={{ width: `${(Math.min(position, order.length) / order.length) * 100}%` }} />
@@ -78,16 +96,16 @@ export function Flashcards({ cards }: { cards: Flashcard[] }) {
       <AnimatePresence mode="wait">
         {done ? (
           <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-5 rounded-2xl bg-forest-100 p-8 text-center text-forest-800">
-            <p className="font-display text-2xl font-semibold">Bravo ! 🎉</p>
-            <p className="mt-1">Vous connaissez {known.size} mot{known.size > 1 ? "s" : ""} sur {cards.length}.</p>
+            <p className="font-display text-2xl font-semibold">{t.bravo}</p>
+            <p className="mt-1">{t.youKnow(known.size, cards.length)}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {known.size < cards.length && <button onClick={() => restart(true)} className="btn-primary"><RotateCcw size={16} /> Revoir les mots à retravailler</button>}
-              <button onClick={() => restart(false, true)} className="btn-outline"><Shuffle size={16} /> Recommencer dans le désordre</button>
+              {known.size < cards.length && <button onClick={() => restart(true)} className="btn-primary"><RotateCcw size={16} /> {t.review}</button>}
+              <button onClick={() => restart(false, true)} className="btn-outline"><Shuffle size={16} /> {t.shuffle}</button>
             </div>
           </motion.div>
         ) : (
           <motion.div key={position} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="mt-5">
-            <button onClick={() => setFlipped((f) => !f)} className="block w-full [perspective:1000px]" aria-label={flipped ? "Voir le mot" : "Voir la traduction"}>
+            <button onClick={() => setFlipped((f) => !f)} className="block w-full [perspective:1000px]" aria-label={flipped ? t.seeWord : t.seeTranslation}>
               <motion.div
                 animate={{ rotateY: flipped ? 180 : 0 }}
                 transition={{ duration: reduce ? 0 : 0.5, ease: "easeInOut" }}
@@ -95,7 +113,7 @@ export function Flashcards({ cards }: { cards: Flashcard[] }) {
               >
                 <div className="pattern-bogolan absolute inset-0 flex flex-col items-center justify-center rounded-2xl border-2 border-sand-300 bg-white p-6 [backface-visibility:hidden]">
                   <p className="font-display text-3xl font-semibold text-earth-900">{card.front}</p>
-                  <p className="mt-3 text-xs text-earth-500">Touchez pour voir la traduction</p>
+                  <p className="mt-3 text-xs text-earth-500">{t.tap}</p>
                 </div>
                 <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-forest-800 p-6 text-sand-50 [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   <p className="font-display text-2xl font-semibold">{card.back || "—"}</p>
@@ -104,8 +122,8 @@ export function Flashcards({ cards }: { cards: Flashcard[] }) {
               </motion.div>
             </button>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button onClick={() => next(false)} className="btn-outline"><RotateCcw size={16} /> À revoir</button>
-              <button onClick={() => next(true)} className="btn bg-forest-600 text-white hover:bg-forest-700"><Check size={16} /> Je sais</button>
+              <button onClick={() => next(false)} className="btn-outline"><RotateCcw size={16} /> {t.again}</button>
+              <button onClick={() => next(true)} className="btn bg-forest-600 text-white hover:bg-forest-700"><Check size={16} /> {t.iKnow}</button>
             </div>
           </motion.div>
         )}

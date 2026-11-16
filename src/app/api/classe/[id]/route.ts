@@ -1,4 +1,6 @@
 import type { NextRequest } from "next/server";
+import { defineMessages } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 import { getCurrentUser } from "@/lib/auth";
 import { isClassroomOpen } from "@/lib/classroom";
 import { BOARD_COLORS, MAX_EXTRA_MINUTES, REACTIONS } from "@/lib/constants";
@@ -14,15 +16,35 @@ const PEER_TIMEOUT_MS = 6000;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STROKE_POINTS = 600;
 
+const M = defineMessages({
+  en: {
+    signedOut: "Not logged in", notFound: "Lesson not found", closed: "The classroom is closed.", tooLarge: "Message too large",
+    json: "Invalid JSON", invalid: "Invalid request", empty: "Empty message", tutorOnly: "Tutor only", badDocument: "Invalid document",
+    noDocument: "Document not found", changed: "The time has just been changed, please try again.",
+    quiz: "A question, 2 to 4 answers and the correct answer are required.", inactive: "This quiz is no longer active.",
+    transcript: "Transcription not allowed",
+    maxExtended: (n: number) => `The lesson has already been extended by ${n} minutes, the maximum.`,
+  },
+  fr: {
+    signedOut: "Non connecté", notFound: "Cours introuvable", closed: "La salle de classe est fermée.", tooLarge: "Message trop volumineux",
+    json: "JSON invalide", invalid: "Requête invalide", empty: "Message vide", tutorOnly: "Réservé au tuteur", badDocument: "Document invalide",
+    noDocument: "Document introuvable", changed: "Le temps vient d'être modifié, réessayez.",
+    quiz: "Une question, 2 à 4 réponses et la bonne réponse sont nécessaires.", inactive: "Ce quiz n'est plus actif.",
+    transcript: "Transcription non autorisée",
+    maxExtended: (n: number) => `Le cours a déjà été prolongé de ${n} minutes, le maximum.`,
+  },
+});
+
 async function loadRoom(ctx: RouteContext<"/api/classe/[id]">) {
+  const t = M[await getLocale()];
   const user = await getCurrentUser();
-  if (!user) return { error: Response.json({ error: "Non connecté" }, { status: 401 }) };
+  if (!user) return { error: Response.json({ error: t.signedOut }, { status: 401 }) };
   const _id = toObjectId((await ctx.params).id);
   const db = await getDb();
   const lesson = _id && (await db.lessons.findOne({ _id, $or: [{ studentId: user._id }, { tutorId: user._id }] }));
-  if (!lesson) return { error: Response.json({ error: "Cours introuvable" }, { status: 404 }) };
+  if (!lesson) return { error: Response.json({ error: t.notFound }, { status: 404 }) };
   const otherId = lesson.tutorId.equals(user._id) ? lesson.studentId : lesson.tutorId;
-  return { user, lesson, otherId, db };
+  return { user, lesson, otherId, db, t };
 }
 
 // The student only learns the right answer once they have answered (or the quiz is over).
@@ -151,21 +173,21 @@ const clip = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max);
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/[id]">) {
   const room = await loadRoom(ctx);
   if (room.error) return room.error;
-  const { user, lesson, otherId, db } = room;
-  if (!isClassroomOpen(lesson)) return Response.json({ error: "La salle de classe est fermée." }, { status: 403 });
+  const { user, lesson, otherId, db, t } = room;
+  if (!isClassroomOpen(lesson)) return Response.json({ error: t.closed }, { status: 403 });
 
   const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return Response.json({ error: "Message trop volumineux" }, { status: 413 });
+  if (raw.length > MAX_BODY_BYTES) return Response.json({ error: t.tooLarge }, { status: 413 });
   let input: Input;
   try {
     input = JSON.parse(raw);
   } catch {
-    return Response.json({ error: "JSON invalide" }, { status: 400 });
+    return Response.json({ error: t.json }, { status: 400 });
   }
 
   const isTutor = lesson.tutorId.equals(user._id);
   const ok = () => Response.json({ ok: true });
-  const bad = (error = "Requête invalide", status = 400) => Response.json({ error }, { status });
+  const bad = (error = t.invalid, status = 400) => Response.json({ error }, { status });
   const set = (fields: Partial<LessonDoc> | Record<string, unknown>) => db.lessons.updateOne({ _id: lesson._id }, { $set: fields });
   const addEvent = (type: "reaction" | "stroke" | "clear", payload: unknown) =>
     db.events.insertOne({ _id: new ObjectId(), lessonId: lesson._id, authorId: user._id, type, payload, createdAt: new Date() });
@@ -180,41 +202,41 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
 
     case "chat": {
       const body = clip(input.body, 2000);
-      if (!body) return bad("Message vide");
+      if (!body) return bad(t.empty);
       await db.classChat.insertOne({ _id: new ObjectId(), lessonId: lesson._id, authorId: user._id, body, createdAt: new Date() });
       return ok();
     }
 
     // The tutor puts a shared document on the main stage for both participants.
     case "present": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       const fileId = input.fileId ? toObjectId(input.fileId) : null;
-      if (input.fileId && !fileId) return bad("Document invalide");
-      if (fileId && !(await db.files.find({ _id: fileId, "metadata.lessonId": lesson._id }).hasNext())) return bad("Document introuvable", 404);
+      if (input.fileId && !fileId) return bad(t.badDocument);
+      if (fileId && !(await db.files.find({ _id: fileId, "metadata.lessonId": lesson._id }).hasNext())) return bad(t.noDocument, 404);
       await set(fileId ? { presentedFileId: fileId, boardOpen: false } : { presentedFileId: null });
       return ok();
     }
 
     // The tutor adds a few minutes at the end of the lesson (MAX_EXTRA_MINUTES in total).
     case "extend": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       const minutes = Number(input.minutes);
       const current = lesson.extraMinutes ?? 0;
       if (!Number.isInteger(minutes) || minutes < 1) return bad();
-      if (current >= MAX_EXTRA_MINUTES) return bad(`Le cours a déjà été prolongé de ${MAX_EXTRA_MINUTES} minutes, le maximum.`);
+      if (current >= MAX_EXTRA_MINUTES) return bad(t.maxExtended(MAX_EXTRA_MINUTES));
       const extraMinutes = Math.min(MAX_EXTRA_MINUTES, current + minutes);
       // The filter on the current value keeps two quick clicks from going past the maximum.
       const { modifiedCount } = await db.lessons.updateOne(
         { _id: lesson._id, ...(current ? { extraMinutes: current } : { extraMinutes: { $exists: false } }) },
         { $set: { extraMinutes } },
       );
-      if (!modifiedCount) return bad("Le temps vient d'être modifié, réessayez.", 409);
+      if (!modifiedCount) return bad(t.changed, 409);
       return Response.json({ extraMinutes });
     }
 
     // Live notes typed by the tutor; the student sees them update.
     case "notes": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       await set({ notes: { keyPoints: clip(input.keyPoints, 8000), vocabulary: clip(input.vocabulary, 8000), homework: clip(input.homework, 4000), updatedAt: new Date() } });
       return ok();
     }
@@ -235,7 +257,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
 
     // Whiteboard: coordinates are normalised to 0..1 so both screens line up.
     case "board": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       await set(input.open ? { boardOpen: true, presentedFileId: null } : { boardOpen: false });
       return ok();
     }
@@ -248,19 +270,19 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
       return ok();
     }
     case "clear": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       await addEvent("clear", null);
       return ok();
     }
 
     // Quick quiz: the tutor asks, the student answers, both see the result.
     case "quiz": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       const options = Array.isArray(input.options) ? input.options.map((o) => clip(o, 200)).filter(Boolean).slice(0, 4) : [];
       const question = clip(input.question, 300);
       const correctIndex = Number(input.correctIndex);
       if (!question || options.length < 2 || !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= options.length) {
-        return bad("Une question, 2 à 4 réponses et la bonne réponse sont nécessaires.");
+        return bad(t.quiz);
       }
       const quiz: LiveQuiz = { id: new ObjectId().toHexString(), question, options, correctIndex, explanation: clip(input.explanation, 500), answerIndex: null, closed: false };
       const previous = lesson.liveQuiz;
@@ -269,7 +291,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
     }
     case "answer": {
       const quiz = lesson.liveQuiz;
-      if (isTutor || !quiz || quiz.id !== input.quizId || quiz.closed) return bad("Ce quiz n'est plus actif.");
+      if (isTutor || !quiz || quiz.id !== input.quizId || quiz.closed) return bad(t.inactive);
       const index = Number(input.index);
       if (!Number.isInteger(index) || index < 0 || index >= quiz.options.length) return bad();
       // Only the first answer counts; a repeat gets the result of the recorded one.
@@ -278,7 +300,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
       return Response.json({ answerIndex: answer, correct: answer === quiz.correctIndex, correctIndex: quiz.correctIndex, explanation: quiz.explanation });
     }
     case "quiz-close": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       const quiz = lesson.liveQuiz;
       if (quiz) await db.lessons.updateOne({ _id: lesson._id }, { $set: { liveQuiz: null }, $push: { quizzes: archiveQuiz(quiz) } });
       return ok();
@@ -286,7 +308,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
 
     // AI assistant: the tutor switches it on; each participant decides whether their own voice is transcribed.
     case "assistant": {
-      if (!isTutor) return bad("Réservé au tuteur", 403);
+      if (!isTutor) return bad(t.tutorOnly, 403);
       await set(input.enabled ? { "assistant.enabled": true, [`assistant.consent.${user.id}`]: true } : { "assistant.enabled": false });
       return ok();
     }
@@ -296,7 +318,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/classe/
     }
     case "transcript": {
       const assistant = lesson.assistant;
-      if (!assistant?.enabled || !assistant.consent[user.id]) return bad("Transcription non autorisée", 403);
+      if (!assistant?.enabled || !assistant.consent[user.id]) return bad(t.transcript, 403);
       const text = clip(input.text, 1000);
       if (!text) return bad();
       await db.transcript.insertOne({ _id: new ObjectId(), lessonId: lesson._id, speakerId: user._id, text, lang: clip(input.lang, 20), createdAt: new Date() });

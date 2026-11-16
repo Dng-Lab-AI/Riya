@@ -58,6 +58,8 @@ export type UserDoc = {
   emailVerified?: boolean;
   // Set when the account signs in with Google ("sub" claim).
   googleId?: string;
+  // Interface language last chosen with the EN / FR switch (used for e-mails and lesson summaries).
+  locale?: "en" | "fr";
   createdAt: Date;
 };
 
@@ -287,14 +289,14 @@ function collectionsOf(db: Db): Collections {
 async function init(): Promise<Collections> {
   // No silent fallback: every signup, login and write goes to the configured database.
   const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI n'est pas défini. Ajoutez l'adresse de votre base MongoDB dans .env.local, puis redémarrez le serveur.");
+  if (!uri) throw new Error("MONGODB_URI is not set. Add the address of your MongoDB database to .env.local, then restart the server.");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
   try {
     await client.connect();
   } catch (err) {
     throw new Error(
-      `Impossible de joindre MongoDB (${uri.replace(/\/\/[^@/]*@/, "//***@")}). ` +
-        "Vérifiez MONGODB_URI dans .env.local et, sur Atlas, que votre adresse IP est autorisée (Network Access).",
+      `Cannot reach MongoDB (${uri.replace(/\/\/[^@/]*@/, "//***@")}). ` +
+        "Check MONGODB_URI in .env.local and, on Atlas, that your IP address is allowed (Network Access).",
       { cause: err },
     );
   }

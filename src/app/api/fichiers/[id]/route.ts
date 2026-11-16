@@ -9,11 +9,11 @@ import { findLessonFile } from "@/lib/documents";
 // Add ?telecharger=1 to download instead of opening it in the browser.
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/fichiers/[id]">) {
   const user = await getCurrentUser();
-  if (!user) return new Response("Non connecté", { status: 401 });
+  if (!user) return new Response("Not logged in", { status: 401 });
   const fileId = toObjectId((await ctx.params).id);
   const found = fileId && (await findLessonFile(fileId));
   if (!found || !(await getParticipantLesson(found.meta.lessonId.toHexString(), user._id))) {
-    return new Response("Document introuvable", { status: 404 });
+    return new Response("Document not found", { status: 404 });
   }
 
   const db = await getDb();

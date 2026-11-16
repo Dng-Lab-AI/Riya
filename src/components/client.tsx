@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { intlLocale } from "@/i18n";
+import { useLocale } from "@/i18n/client";
 
 // Client-side helpers that need the browser (pending state, local time zone).
 
@@ -29,16 +31,18 @@ export function SubmitButton({
   ...props
 }: React.ComponentProps<"button"> & { pendingText?: string; pending?: boolean }) {
   const status = useFormStatus();
+  const locale = useLocale();
   const pending = pendingProp ?? status.pending;
   return (
     <button type="submit" disabled={pending || disabled} className={className} {...props}>
-      {pending ? (pendingText ?? "Patientez…") : children}
+      {pending ? (pendingText ?? (locale === "fr" ? "Patientez…" : "Please wait…")) : children}
     </button>
   );
 }
 
-// Dates are stored in UTC and shown in the visitor's own time zone.
+// Dates are stored in UTC and shown in the visitor's own time zone and language.
 export function LocalDateTime({ iso, mode = "datetime" }: { iso: string; mode?: "datetime" | "date" | "time" }) {
+  const locale = useLocale();
   const date = new Date(iso);
   const options: Intl.DateTimeFormatOptions =
     mode === "date" ? { weekday: "long", day: "numeric", month: "long" }
@@ -46,7 +50,7 @@ export function LocalDateTime({ iso, mode = "datetime" }: { iso: string; mode?: 
     : { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
   return (
     <time dateTime={iso} suppressHydrationWarning>
-      {date.toLocaleString("fr-FR", options)}
+      {date.toLocaleString(intlLocale(locale), options)}
     </time>
   );
 }

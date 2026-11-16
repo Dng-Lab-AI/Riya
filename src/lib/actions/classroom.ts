@@ -1,16 +1,32 @@
 "use server";
 
 import { after } from "next/server";
+import { defineMessages } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 import { requireUser } from "../auth";
 import { getParticipantLesson, sessionHappened } from "../classroom";
 import { getDb, ObjectId } from "../db";
 import { generateLessonSummary, isSummaryAvailable } from "../summary";
 import { int, refreshAll, text, type FormState } from "./shared";
 
+const M = defineMessages({
+  en: {
+    tutorNotes: "Only the tutor can edit the lesson notes.", saved: "Notes saved.", studentOnly: "Only the student of this lesson can rate it.",
+    notYet: "You'll be able to rate the session once it has taken place.", every: "Give each criterion a rating from 1 to 5.",
+    thanks: "Thank you! Your feedback has been sent to your tutor.",
+  },
+  fr: {
+    tutorNotes: "Seul le tuteur peut modifier les notes du cours.", saved: "Notes enregistrées.", studentOnly: "Seul l'élève de ce cours peut le noter.",
+    notYet: "Vous pourrez noter la séance une fois qu'elle aura eu lieu.", every: "Donnez une note de 1 à 5 à chaque critère.",
+    thanks: "Merci ! Votre retour a été transmis à votre tuteur.",
+  },
+});
+
 export async function saveLessonNotes(lessonId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser(`/cours/${lessonId}`);
   const room = await getParticipantLesson(lessonId, user._id);
-  if (!room || room.role !== "tutor") return { error: "Seul le tuteur peut modifier les notes du cours." };
+  const t = M[await getLocale()];
+  if (!room || room.role !== "tutor") return { error: t.tutorNotes };
 
   const notes = {
     keyPoints: text(formData, "keyPoints", 8000),
@@ -20,7 +36,7 @@ export async function saveLessonNotes(lessonId: string, _prev: FormState, formDa
   };
   await (await getDb()).lessons.updateOne({ _id: room.lesson._id }, { $set: { notes } });
   refreshAll();
-  return { success: "Notes enregistrées." };
+  return { success: t.saved };
 }
 
 const score = (formData: FormData, key: string) => {
@@ -31,8 +47,9 @@ const score = (formData: FormData, key: string) => {
 export async function submitFeedback(lessonId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser(`/cours/${lessonId}`);
   const room = await getParticipantLesson(lessonId, user._id);
-  if (!room || room.role !== "student") return { error: "Seul l'élève de ce cours peut le noter." };
-  if (!sessionHappened(room.lesson)) return { error: "Vous pourrez noter la séance une fois qu'elle aura eu lieu." };
+  const t = M[await getLocale()];
+  if (!room || room.role !== "student") return { error: t.studentOnly };
+  if (!sessionHappened(room.lesson)) return { error: t.notYet };
 
   const rating = score(formData, "rating");
   const criteria = {
@@ -41,7 +58,7 @@ export async function submitFeedback(lessonId: string, _prev: FormState, formDat
     content: score(formData, "content"),
     pace: score(formData, "pace"),
   };
-  if (!rating || Object.values(criteria).some((v) => v === null)) return { error: "Donnez une note de 1 à 5 à chaque critère." };
+  if (!rating || Object.values(criteria).some((v) => v === null)) return { error: t.every };
 
   const now = new Date();
   await (await getDb()).feedback.updateOne(
@@ -53,7 +70,7 @@ export async function submitFeedback(lessonId: string, _prev: FormState, formDat
     { upsert: true },
   );
   refreshAll();
-  return { success: "Merci ! Votre retour a été transmis à votre tuteur." };
+  return { success: t.thanks };
 }
 
 // Starts (or restarts) the AI recap; it runs after the response so the page stays fast.

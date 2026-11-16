@@ -20,20 +20,20 @@ import amboseli from "../../public/images/amboseli.jpg";
 export type Photo = { src: StaticImageData; alt: string };
 
 export const PHOTOS = {
-  marche: { src: marcheAbidjan, alt: "Femmes en pagne au marché d'Adjamé, à Abidjan" },
-  tissus: { src: tissusAbidjan, alt: "Rouleaux de pagnes wax aux motifs colorés" },
-  stoneTown: { src: stoneTown, alt: "Rue animée de Stone Town, à Zanzibar" },
-  addis: { src: addisAbeba, alt: "Immeubles d'Addis-Abeba, en Éthiopie" },
-  cap: { src: cap, alt: "Vue aérienne du Cap, en Afrique du Sud" },
-  madagascar: { src: madagascar, alt: "L'allée des baobabs, à Madagascar" },
-  portraitLagos: { src: lagosPortrait, alt: "Jeune femme souriante portant un foulard coloré" },
-  portraitGhana: { src: ghanaPortrait, alt: "Femme de profil avec un foulard aux motifs kente" },
-  portraitRue: { src: tuteurSourire, alt: "Jeune homme souriant, bras croisés, dans une rue" },
-  portraitJoie: { src: tuteurBarbe, alt: "Homme qui rit, poings serrés de joie" },
-  eleve: { src: eleveLaptop, alt: "Élève souriante devant son ordinateur, un carnet à la main" },
-  visio: { src: eleveVisio, alt: "Élève qui suit un cours en visio sur son ordinateur" },
-  goree: { src: goree, alt: "Plage et maisons colorées de l'île de Gorée, au Sénégal" },
-  amboseli: { src: amboseli, alt: "Éléphant dans la savane du parc d'Amboseli, au Kenya" },
+  marche: { src: marcheAbidjan, alt: "Women in wax-print wraps at Adjamé market, Abidjan" },
+  tissus: { src: tissusAbidjan, alt: "Rolls of colourful wax-print fabric" },
+  stoneTown: { src: stoneTown, alt: "Busy street in Stone Town, Zanzibar" },
+  addis: { src: addisAbeba, alt: "Buildings in Addis Ababa, Ethiopia" },
+  cap: { src: cap, alt: "Aerial view of Cape Town, South Africa" },
+  madagascar: { src: madagascar, alt: "The Avenue of the Baobabs, Madagascar" },
+  portraitLagos: { src: lagosPortrait, alt: "Smiling young woman wearing a colourful headscarf" },
+  portraitGhana: { src: ghanaPortrait, alt: "Woman in profile wearing a kente-pattern headscarf" },
+  portraitRue: { src: tuteurSourire, alt: "Smiling young man with crossed arms in a street" },
+  portraitJoie: { src: tuteurBarbe, alt: "Man laughing, fists clenched with joy" },
+  eleve: { src: eleveLaptop, alt: "Smiling student at her laptop, notebook in hand" },
+  visio: { src: eleveVisio, alt: "Student following a video lesson on her laptop" },
+  goree: { src: goree, alt: "Beach and colourful houses on Gorée Island, Senegal" },
+  amboseli: { src: amboseli, alt: "Elephant in the savannah of Amboseli park, Kenya" },
 } satisfies Record<string, Photo>;
 
 export const REGION_PHOTOS: Record<string, Photo> = {
