@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ExternalLink, LayoutDashboard, LogOut, MessageCircle, UserCheck, Users } from "lucide-react";
 import { defineMessages } from "@/i18n";
 import { useLocale } from "@/i18n/client";
@@ -17,6 +17,7 @@ const M = defineMessages({
 export function AdminNav({ name, toReview, unread, publicUrl }: { name: string; toReview: number; unread: number; publicUrl: string }) {
   const t = M[useLocale()];
   const pathname = usePathname();
+  const router = useRouter();
   const items = [
     { href: "/", label: t.dashboard, icon: LayoutDashboard, badge: 0, active: pathname === "/" },
     { href: "/utilisateurs", label: t.members, icon: Users, badge: 0, active: pathname.startsWith("/utilisateurs") },
@@ -43,13 +44,21 @@ export function AdminNav({ name, toReview, unread, publicUrl }: { name: string; 
           </li>
         ))}
       </ul>
-      <div className="mt-auto hidden space-y-3 border-t border-white/10 pt-4 lg:block">
-        <p className="text-sm text-sand-200">{name}<span className="block text-xs text-sand-300">{t.team}</span></p>
-        <LanguageSwitcher dark />
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 lg:mt-auto lg:block lg:space-y-3 lg:border-t lg:border-white/10 lg:pt-4">
+        <p className="hidden text-sm text-sand-200 lg:block">{name}<span className="block text-xs text-sand-300">{t.team}</span></p>
+        <div className="hidden lg:block"><LanguageSwitcher dark /></div>
         <a href={publicUrl} className="flex items-center gap-2 text-sm text-sand-200 hover:text-white"><ExternalLink size={15} /> {t.site}</a>
-        <form action={adminLogout}>
-          <button className="flex items-center gap-2 text-sm text-sand-200 hover:text-white"><LogOut size={15} /> {t.logout}</button>
-        </form>
+        <button
+          type="button"
+          onClick={async () => {
+            await adminLogout();
+            router.replace("/connexion");
+            router.refresh();
+          }}
+          className="flex items-center gap-2 text-sm text-sand-200 hover:text-white"
+        >
+          <LogOut size={15} /> {t.logout}
+        </button>
       </div>
     </nav>
   );

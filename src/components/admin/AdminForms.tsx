@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Ban, Lock, Mail, PauseCircle, Send, Trash2 } from "lucide-react";
 import { defineMessages } from "@/i18n";
 import { useLocale } from "@/i18n/client";
@@ -38,6 +39,11 @@ const M = defineMessages({
 export function AdminLoginForm() {
   const t = M[useLocale()];
   const { state, onSubmit } = useKeepValuesForm(adminLogin);
+  const router = useRouter();
+  // Navigating from the browser goes through the proxy, so the admin host serves its dashboard (see lib/actions/admin.ts).
+  useEffect(() => {
+    if (state?.success) router.replace("/");
+  }, [state, router]);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
@@ -119,6 +125,10 @@ export function BlockForm({ userId }: { userId: string }) {
 export function DeleteForm({ userId, email }: { userId: string; email: string }) {
   const t = M[useLocale()];
   const { state, onSubmit } = useKeepValuesForm(deleteMember.bind(null, userId));
+  const router = useRouter();
+  useEffect(() => {
+    if (state?.success) router.replace("/utilisateurs?supprime=1");
+  }, [state, router]);
   return (
     <Disclosure label={t.delete} icon={<Trash2 size={16} />} tone="text-clay-700">
       {(close) => (

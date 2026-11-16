@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { DEFAULT_LOCALE, defineMessages, type Locale } from "@/i18n";
 import { getLocale } from "@/i18n/server";
 import { createSession, destroySession, isActive, requireAdmin, type SessionUser } from "../auth";
@@ -9,13 +8,14 @@ import { sendActionEmail } from "../mail";
 import { moderationMessage } from "../moderation";
 import { verifyPassword } from "../password";
 import { refundLesson } from "../payments";
-import { adminOrigin, publicOrigin } from "../site";
+import { publicOrigin } from "../site";
 import { emptyTutorProfile } from "../tutor-profile";
 import { tellTutorDecision } from "../tutor-review";
 import { refreshAll, text, type FormState } from "./shared";
 
-// Redirects use the full address of the admin site: a relative one, from a server action, would be
-// rendered without the proxy (src/proxy.ts) and show the public page at that path.
+// No redirect() here: from a server action, Next.js renders the target itself, without the proxy
+// (src/proxy.ts), so the admin host would show the public page at that path. The forms navigate
+// in the browser instead once the action has succeeded.
 //
 // Actions of the admin site (admin.<domain>). Each one checks that an administrator is logged in,
 // never acts on an administrator account (except to write to them), and is written to the admin log.
@@ -27,7 +27,7 @@ const M = defineMessages({
     sent: "The tutor has been told what to change.", reason: "Give a reason (at least 5 characters): the member will see it.",
     suspended: "Account suspended.", blocked: "Account blocked.", confirm: "Type the member's e-mail address exactly to confirm.",
     empty: "Write a message.", messageSent: "Message sent.", messageSentMail: "Message sent, with a copy by e-mail.",
-    protectedAdmin: "Administrator accounts cannot be changed from here.",
+    protectedAdmin: "Administrator accounts cannot be changed from here.", loggedIn: "Logged in.", deleted: "Account deleted.",
   },
   fr: {
     wrong: "E-mail ou mot de passe incorrect.", notAdmin: "Ce compte n'a pas accès à l'administration.",
@@ -35,7 +35,7 @@ const M = defineMessages({
     sent: "Le tuteur a été prévenu des modifications à faire.", reason: "Indiquez un motif (5 caractères minimum) : le membre le verra.",
     suspended: "Compte suspendu.", blocked: "Compte bloqué.", confirm: "Saisissez exactement l'adresse e-mail du membre pour confirmer.",
     empty: "Écrivez un message.", messageSent: "Message envoyé.", messageSentMail: "Message envoyé, avec une copie par e-mail.",
-    protectedAdmin: "Les comptes administrateurs ne peuvent pas être modifiés ici.",
+    protectedAdmin: "Les comptes administrateurs ne peuvent pas être modifiés ici.", loggedIn: "Connecté.", deleted: "Compte supprimé.",
   },
 });
 
@@ -111,12 +111,11 @@ export async function adminLogin(_prev: FormState, formData: FormData): Promise<
   if (user.role !== "admin") return { error: t.notAdmin };
   if (!(await isActive(user))) return { error: moderationMessage(user, locale) };
   await createSession(user._id);
-  redirect(`${await adminOrigin()}/`);
+  return { success: t.loggedIn };
 }
 
 export async function adminLogout() {
   await destroySession();
-  redirect(`${await adminOrigin()}/connexion`);
 }
 
 // ── Tutors ───────────────────────────────────────────────
@@ -262,7 +261,7 @@ export async function deleteMember(userId: string, _prev: FormState, formData: F
   await db.users.deleteOne({ _id: user._id });
   await log(admin, user, "delete", cancelled ? `${cancelled} lesson(s) cancelled` : "");
   refreshAll();
-  redirect(`${await adminOrigin()}/utilisateurs?supprime=1`);
+  return { success: t.deleted };
 }
 
 // ── Messages ─────────────────────────────────────────────
