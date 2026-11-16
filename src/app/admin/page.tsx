@@ -118,7 +118,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
                         <div className="flex flex-wrap items-center gap-2">
                           <Link href={`/tuteurs/${tutor.id}`} className="font-semibold hover:text-clay-700">{tutor.name}</Link>
                           {tutor.has_video && <span className="chip bg-forest-100 text-forest-800"><Video size={12} /> {t.video}</span>}
-                          <span className="chip bg-sand-100 text-earth-600"><Clock size={12} /> {t.submitted(timeAgo(tutor.submitted_at ?? tutor.joined_at, locale))}</span>
+                          <span className="chip bg-sand-100 text-earth-600"><Clock size={12} /> {tutor.submitted_at ? t.submitted(timeAgo(tutor.submitted_at, locale)) : t.joinedAgo(timeAgo(tutor.joined_at, locale))}</span>
                         </div>
                         <p className="text-sm text-earth-600">{tutorLine(tutor)}</p>
                         <p className="font-medium">{tutor.headline}</p>
