@@ -7,6 +7,7 @@ import { getLocale, titled } from "@/i18n/server";
 import { getAdminStats, getRecentActivity } from "@/lib/admin-data";
 import { requireAdmin } from "@/lib/auth";
 import { formatPrice, timeAgo } from "@/lib/constants";
+import { DashboardCharts } from "./charts-section";
 import { ACTION_LABELS, ROLE_LABELS } from "./labels";
 
 const M = defineMessages({
@@ -71,6 +72,8 @@ export default async function AdminDashboard() {
           );
         })}
       </div>
+
+      <DashboardCharts locale={locale} />
 
       <TutorReviews locale={locale} />
 
