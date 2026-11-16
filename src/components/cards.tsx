@@ -23,11 +23,11 @@ const REGION_ACCENT: Record<string, string> = {
 const M = defineMessages({
   en: {
     tutors: (n: number) => `${n} tutor${n === 1 ? "" : "s"}`, verified: "Verified tutor", native: "native", fluent: "fluent",
-    lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"} taught`, profile: "View profile", book: "Book",
+    lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"} taught`, profile: "View profile", book: "Book", quote: (s: string) => `“${s}”`,
   },
   fr: {
     tutors: (n: number) => `${n} tuteur${n > 1 ? "s" : ""}`, verified: "Tuteur vérifié", native: "natif", fluent: "courant",
-    lessons: (n: number) => `${n} cours donnés`, profile: "Voir le profil", book: "Réserver",
+    lessons: (n: number) => `${n} cours donnés`, profile: "Voir le profil", book: "Réserver", quote: (s: string) => `« ${s} »`,
   },
 });
 
@@ -53,7 +53,7 @@ export function LanguageCard({ language }: { language: Language }) {
         </span>
       </div>
       <p className="mt-6 font-display text-3xl font-semibold leading-tight text-earth-900">{language.greeting}</p>
-      <p className="text-sm italic text-earth-500">« {language.greeting_meaning} »</p>
+      <p className="text-sm italic text-earth-500">{t.quote(language.greeting_meaning)}</p>
       <div className="mt-auto flex items-end justify-between gap-3 border-t border-dashed border-sand-300 pt-4">
         <div>
           <h3 className="font-semibold text-earth-900">{language.name}</h3>

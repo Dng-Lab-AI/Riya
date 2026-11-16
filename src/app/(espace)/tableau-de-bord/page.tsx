@@ -24,7 +24,7 @@ const PAYMENT_CLASSES: Record<PaymentStatus, string> = {
 };
 
 const M = defineMessages<{
-  payment: Record<PaymentStatus, string>; proposedByTutor: string; awaitingStudent: string; weekly: string; yourReview: string;
+  payment: Record<PaymentStatus, string>; proposedByTutor: string; awaitingStudent: string; weekly: string; yourReview: string; studentReview: string;
   acceptPay: string; decline: string; pay: string; classroom: string; accept: string; complete: string; cancelProposal: string; cancel: string;
   summary: string; message: string; criteria: Record<"clarity" | "interaction" | "content" | "pace", string>; feedbackTitle: string;
   feedbackLead: string; average: (n: number) => string; liked: string; improve: string; noFeedback: string; noFeedbackText: string;
@@ -36,7 +36,7 @@ const M = defineMessages<{
 }>({
   en: {
     payment: { paid: "Paid", pending: "Payment pending", failed: "Payment failed", refunded: "Refunded", refund_failed: "Refund in progress" },
-    proposedByTutor: "Proposed by your tutor", awaitingStudent: "Waiting for the student", weekly: "Weekly", yourReview: "Your review:",
+    proposedByTutor: "Proposed by your tutor", awaitingStudent: "Waiting for the student", weekly: "Weekly", yourReview: "Your review:", studentReview: "Student's review:",
     acceptPay: "Accept and pay", decline: "Decline", pay: "Pay", classroom: "Classroom", accept: "Accept", complete: "Mark as completed",
     cancelProposal: "Cancel the proposal", cancel: "Cancel", summary: "Summary", message: "Message",
     criteria: { clarity: "Clarity", interaction: "Interaction", content: "Content", pace: "Pace" },
@@ -59,7 +59,7 @@ const M = defineMessages<{
   },
   fr: {
     payment: { paid: "Payé", pending: "Paiement en attente", failed: "Paiement non abouti", refunded: "Remboursé", refund_failed: "Remboursement en cours" },
-    proposedByTutor: "Proposé par votre tuteur", awaitingStudent: "En attente de l'élève", weekly: "Hebdomadaire", yourReview: "Votre avis :",
+    proposedByTutor: "Proposé par votre tuteur", awaitingStudent: "En attente de l'élève", weekly: "Hebdomadaire", yourReview: "Votre avis :", studentReview: "Avis de l'élève :",
     acceptPay: "Accepter et payer", decline: "Refuser", pay: "Payer", classroom: "Salle de classe", accept: "Accepter", complete: "Marquer terminé",
     cancelProposal: "Annuler la proposition", cancel: "Annuler", summary: "Résumé", message: "Message",
     criteria: { clarity: "Clarté", interaction: "Interaction", content: "Contenu", pace: "Rythme" },
@@ -119,7 +119,7 @@ function LessonRow({ lesson, as, t, locale }: { lesson: Lesson; as: "student" | 
           {lesson.language_name} · <LocalDateTime iso={lesson.starts_at} /> · {lesson.duration_minutes} min · {formatPrice(lesson.price, locale)}
         </p>
         {lesson.message && <p className="mt-1 text-sm italic text-earth-500">« {lesson.message} »</p>}
-        {lesson.review_rating && <p className="mt-1 flex items-center gap-2 text-sm text-earth-500">{t.yourReview} <Stars value={lesson.review_rating} /></p>}
+        {lesson.review_rating && <p className="mt-1 flex items-center gap-2 text-sm text-earth-500">{as === "tutor" ? t.studentReview : t.yourReview} <Stars value={lesson.review_rating} /></p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
