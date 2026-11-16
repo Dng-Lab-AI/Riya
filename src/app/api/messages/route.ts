@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { toObjectId } from "@/lib/db";
 import { getInbox } from "@/lib/inbox";
-import { sendBookingReminders } from "@/lib/notifications";
+import { runScheduledJobs } from "@/lib/jobs";
 import { getThread, getUnreadCount, markThreadRead } from "@/lib/queries";
 
 // Polled by the live message badge (every few seconds, anywhere on the site) and by an
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (!user) return Response.json({ error: "Not logged in" }, { status: 401 });
 
   // Tells tutors about bookings left halfway (throttled to once a minute per server).
-  await sendBookingReminders().catch((err) => console.error("Booking reminders", err));
+  await runScheduledJobs();
 
   const other = toObjectId(request.nextUrl.searchParams.get("avec"));
   let messages;

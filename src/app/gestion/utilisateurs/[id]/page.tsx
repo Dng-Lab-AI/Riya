@@ -14,7 +14,7 @@ import { formatPrice, timeAgo } from "@/lib/constants";
 import { toObjectId } from "@/lib/db";
 import { publicOrigin } from "@/lib/site";
 import { ACTION_LABELS, ROLE_LABELS, ROLE_STYLE, STATUS_LABELS, STATUS_STYLE } from "../../labels";
-import { StudentProgressSection, TutorStudentsSection } from "./sections";
+import { MemberReportsSection, StudentProgressSection, TutorStudentsSection } from "./sections";
 
 const M = defineMessages({
   en: {
@@ -191,6 +191,8 @@ export default async function MemberPage({ params }: PageProps<"/gestion/utilisa
               </>
             )}
           </section>
+
+          <MemberReportsSection userId={memberId} locale={locale} />
 
           {user.id !== admin.id && (
             <section id="message" className="card scroll-mt-24 space-y-3 p-5">

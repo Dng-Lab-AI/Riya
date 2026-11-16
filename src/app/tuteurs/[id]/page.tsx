@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Clock, GraduationCap, Heart, Languages, MapPin, MessageCircle, Video } from "lucide-react";
 import { BookingForm } from "@/components/BookingForm";
+import { ReportButton } from "@/components/ReportButton";
 import { Avatar, EmptyState, Rating, Stars } from "@/components/ui";
 import { defineMessages } from "@/i18n";
 import { countryName } from "@/i18n/catalog";
@@ -205,6 +206,9 @@ export default async function TutorPage({ params }: PageProps<"/tuteurs/[id]">) 
             {canShowInterest && <InterestButton tutorId={tutor.id} tutorFirstName={tutor.name.split(" ")[0]} alreadySent={interested} />}
           </div>
           <p className="mt-3 px-2 text-center text-xs text-earth-500">{t.footer}</p>
+          {user && !isSelf && (
+            <div className="mt-3 flex justify-center"><ReportButton targetId={tutor.id} name={tutor.name} /></div>
+          )}
         </aside>
       </div>
     </div>

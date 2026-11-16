@@ -29,11 +29,16 @@ export const ACTION_LABELS: Record<Locale, Record<AdminLogAction, string>> = {
   en: {
     approve: "Tutor approved", hide: "Hidden from search", ask_changes: "Changes asked", suspend: "Suspended", block: "Blocked",
     reactivate: "Reactivated", delete: "Account deleted", role: "Role changed", message: "Message sent",
-    admin_add: "Made administrator", admin_remove: "Administrator rights removed",
+    admin_add: "Made administrator", admin_remove: "Administrator rights removed", payout: "Payout recorded", report_resolved: "Report resolved",
   },
   fr: {
     approve: "Tuteur validé", hide: "Masqué de la recherche", ask_changes: "Modifications demandées", suspend: "Suspendu", block: "Bloqué",
     reactivate: "Réactivé", delete: "Compte supprimé", role: "Rôle modifié", message: "Message envoyé",
-    admin_add: "Nommé administrateur", admin_remove: "Droits d'administrateur retirés",
+    admin_add: "Nommé administrateur", admin_remove: "Droits d'administrateur retirés", payout: "Versement enregistré", report_resolved: "Signalement traité",
   },
+};
+
+export const REPORT_REASON_LABELS: Record<Locale, Record<string, string>> = {
+  en: { behaviour: "Inappropriate behaviour", no_show: "Missed lessons", spam: "Spam or advertising", fraud: "Payment outside Riya / fraud", content: "Offensive content", other: "Other" },
+  fr: { behaviour: "Comportement inapproprié", no_show: "Absences aux cours", spam: "Spam ou publicité", fraud: "Paiement hors Riya / fraude", content: "Contenu choquant", other: "Autre" },
 };

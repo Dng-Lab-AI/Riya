@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ExternalLink, LayoutDashboard, LogOut, MessageCircle, ShieldCheck, UserCheck, Users } from "lucide-react";
+import { ExternalLink, Flag, LayoutDashboard, LogOut, Megaphone, MessageCircle, ShieldCheck, UserCheck, Users, Wallet } from "lucide-react";
 import { defineMessages } from "@/i18n";
 import { useLocale } from "@/i18n/client";
 import { adminLogout } from "@/lib/actions/admin";
 import { LanguageSwitcher } from "../LanguageSwitcher";
 
 const M = defineMessages({
-  en: { dashboard: "Dashboard", members: "Members", review: "Tutors to approve", messages: "Messages", teamPage: "Team", site: "Public site", logout: "Log out", team: "Riya team" },
-  fr: { dashboard: "Tableau de bord", members: "Membres", review: "Tuteurs à valider", messages: "Messages", teamPage: "Équipe", site: "Site public", logout: "Se déconnecter", team: "Équipe Riya" },
+  en: { dashboard: "Dashboard", members: "Members", review: "Tutors to approve", messages: "Messages", teamPage: "Team", reports: "Reports", payments: "Payments", announcements: "Announcements", site: "Public site", logout: "Log out", team: "Riya team" },
+  fr: { dashboard: "Tableau de bord", members: "Membres", review: "Tuteurs à valider", messages: "Messages", teamPage: "Équipe", reports: "Signalements", payments: "Paiements", announcements: "Annonces", site: "Site public", logout: "Se déconnecter", team: "Équipe Riya" },
 });
 
 // Sidebar of the admin site (a row of pills on phones).
-export function AdminNav({ name, toReview, unread, publicUrl }: { name: string; toReview: number; unread: number; publicUrl: string }) {
+export function AdminNav({ name, toReview, unread, reports, publicUrl }: { name: string; toReview: number; unread: number; reports: number; publicUrl: string }) {
   const t = M[useLocale()];
   const pathname = usePathname();
   const router = useRouter();
@@ -23,6 +23,9 @@ export function AdminNav({ name, toReview, unread, publicUrl }: { name: string; 
     { href: "/utilisateurs", label: t.members, icon: Users, badge: 0, active: pathname.startsWith("/utilisateurs") },
     { href: "/#a-valider", label: t.review, icon: UserCheck, badge: toReview, active: false },
     { href: "/messages", label: t.messages, icon: MessageCircle, badge: unread, active: pathname.startsWith("/messages") },
+    { href: "/signalements", label: t.reports, icon: Flag, badge: reports, active: pathname.startsWith("/signalements") },
+    { href: "/paiements", label: t.payments, icon: Wallet, badge: 0, active: pathname.startsWith("/paiements") },
+    { href: "/annonces", label: t.announcements, icon: Megaphone, badge: 0, active: pathname.startsWith("/annonces") },
     { href: "/equipe", label: t.teamPage, icon: ShieldCheck, badge: 0, active: pathname.startsWith("/equipe") },
   ];
 

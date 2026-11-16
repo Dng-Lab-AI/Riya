@@ -23,7 +23,7 @@ const M = defineMessages<{
   personal: string; currency: string; refund: (hours: number) => string; history: string; lesson: string; date: string;
   method: string; amount: string; statusCol: string; with: string; noPayments: string; noPaymentsText: string; earnings: string; paidLessons: string; paidLessonsLead: string;
   earningsLead: (pct: number) => string; thisMonth: string; sinceStart: string; completed: string; perLesson: string; payouts: string;
-  price: string; youReceive: string; noEarnings: string; noEarningsText: string;
+  price: string; youReceive: string; noEarnings: string; noEarningsText: string; paidOut: string; toCome: string;
 }>({
   en: {
     status: { paid: "Paid", pending: "Pending", failed: "Failed", refunded: "Refunded", refund_failed: "Refund in progress" },
@@ -36,7 +36,7 @@ const M = defineMessages<{
     paidLessons: "Lessons you paid for", paidLessonsLead: "Lessons you booked with other tutors.",
     earningsLead: (pct) => `What you've earned from your completed lessons, after Riya's commission (${pct}%).`,
     thisMonth: "This month", sinceStart: "Since the start", completed: "Completed lessons", perLesson: "Breakdown by lesson",
-    payouts: "Payouts to your mobile money or bank account are made by the Riya team.", price: "Price", youReceive: "You receive",
+    payouts: "Payouts to your mobile money or bank account are made by the Riya team.", price: "Price", youReceive: "You receive", paidOut: "Paid out", toCome: "To come",
     noEarnings: "No earnings yet", noEarningsText: "Your earnings will appear here after your first completed lessons.",
   },
   fr: {
@@ -50,7 +50,7 @@ const M = defineMessages<{
     paidLessons: "Cours que vous avez payés", paidLessonsLead: "Les cours que vous avez réservés avec d’autres tuteurs.",
     earningsLead: (pct) => `Ce que vous avez gagné sur vos cours terminés, après la commission de Riya (${pct} %).`,
     thisMonth: "Ce mois-ci", sinceStart: "Depuis le début", completed: "Cours terminés", perLesson: "Détail par cours",
-    payouts: "Les versements sur votre compte mobile money ou bancaire sont faits par l'équipe Riya.", price: "Prix", youReceive: "Vous recevez",
+    payouts: "Les versements sur votre compte mobile money ou bancaire sont faits par l'équipe Riya.", price: "Prix", youReceive: "Vous recevez", paidOut: "Versé", toCome: "À venir",
     noEarnings: "Pas encore de revenus", noEarningsText: "Vos gains apparaîtront ici après vos premiers cours terminés.",
   },
 });
@@ -165,7 +165,10 @@ async function TutorEarnings({ userId, locale }: { userId: Parameters<typeof get
                       <td className="px-2 py-3"><span className="font-semibold">{r.language_name}</span> <span className="text-earth-500">{t.with} {r.other_name}</span></td>
                       <td className="px-2 py-3 text-earth-600"><LocalDateTime iso={r.starts_at} mode="date" /></td>
                       <td className="px-2 py-3 text-right tabular-nums text-earth-600">{formatPrice(r.price, locale)}</td>
-                      <td className="px-2 py-3 text-right font-semibold tabular-nums">{formatPrice(r.net, locale)}</td>
+                      <td className="px-2 py-3 text-right font-semibold tabular-nums">
+                        {formatPrice(r.net, locale)}
+                        <span className={`chip ml-2 ${r.paid_out ? "bg-forest-100 text-forest-800" : "bg-sand-100 text-earth-600"}`}>{r.paid_out ? t.paidOut : t.toCome}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
